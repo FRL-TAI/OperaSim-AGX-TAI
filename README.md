@@ -39,7 +39,7 @@
 
 ## 自作部分に関して
 ### 追加機能について
-- ブルドーザのブレードに生じる抵抗力の表示
+- [ブルドーザのブレードに生じる抵抗力の表示](docs/feature/show_shovelforces.md)
 
 ### Tips
 - [cmd_vel のTopicをpublishしても建機が動かない場合](docs/tips/cmd_vel.md)
