@@ -21353,7 +21353,7 @@ MonoBehaviour:
   BladeSubscriber: {fileID: 488108190}
   trackSubscriber: {fileID: 488108189}
   settingSubscriber: {fileID: 488108188}
-  movementControlType: 0
+  movementControlType: 1
   controlType: 0
   bladeEdge: {fileID: 0}
   bladeEdgeHeightUpperLimitMeters: 0.8
