@@ -161,8 +161,12 @@ namespace PWRISimulator.ROS
             var soil = terrain.GetSoilSimulationInterface();
             var particles = terrain.GetParticles();
             if (soil == null || particles == null) return;
-            for (int i = particles.Count - 1; i >= 0; i--)
-                soil.removeSoilParticle(particles[i]);
+
+            // AGX の配列は size() で要素数、at(i) で i 番目の要素を取り出す
+            // （AGXUnity の DeformableTerrainParticleRenderer.cs と同じ扱い）
+            int n = (int)particles.size();
+            for (int i = n - 1; i >= 0; i--)
+                soil.removeSoilParticle(particles.at((uint)i));
         }
 
         bool ApplyTerrainOps(TerrainOp[] ops)
