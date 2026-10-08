@@ -39,7 +39,11 @@
 
 ## 自作部分に関して
 ### 追加機能について
-- [ブルドーザのブレードに生じる抵抗力の表示](docs/feature/show_shovelforces.md)
+- [ブルドーザのブレードに生じる抵抗力の表示](docs/feature/ShowShovelForces.md)
+- [データ収集の実行状況の表示](docs/feature/EpisodeStatusOverlay.md)
+- [排土板まわりの状態の配信](docs/feature/BladeStatePublisher.md)
+- [データ収集のエピソード管理](docs/feature/SimEpisodeManager.md)
+- [データ収集用の共通処理](docs/feature/SoilSimUtils.md)
 
 ### Tips
 - [cmd_vel のTopicをpublishしても建機が動かない場合](docs/tips/cmd_vel.md)
