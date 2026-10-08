@@ -3,8 +3,7 @@
 ## 1. 該当ファイル・コミット
 | 項目 | 内容 |
 | --- | --- |
-| 追加ファイル | `Assets/Scripts/Research/ShowShovelForces.cs` |
-| 利用している既存コード | `...(略).../DeformableTerrain.cs`（AGXUnity 同梱。変更なし） |
+| 追加ファイル | `Assets/Research/DataCollection/Scripts/UI/ShowShovelForces.cs` |
 | コミットハッシュ | `acd929a220cf5bfa633d62a817a527ea192d5c5a` |
 
 
