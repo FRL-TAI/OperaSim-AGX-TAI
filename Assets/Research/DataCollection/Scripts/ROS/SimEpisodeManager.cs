@@ -16,9 +16,11 @@ namespace PWRISimulator.ROS
     ///     → 土質パラメータを設定 → 粒子を削除 → 地形の高さ（と締固め）をリセット → 地形を加工
     ///     soil の負の値は「変更しない」。terrain_ops の座標は開始時の刃先中点が原点、x:前方, y:左方 [m]
     ///   {"command":"phase", "phase":"running"}  → 表示用の進行状況だけ更新
+    ///   {"command":"reload"}                     → シーンを読み込み直す（SceneReloader を使う）
     ///
     /// 送信 /sim/episode_status （std_msgs/String, JSON）, 既定 5 Hz と、指令の処理直後
     ///   AGX 本体から読み戻した土質パラメータ、地形の加工の結果、直近に処理した request_id など
+    ///   boot_id：シーンが立ち上がるたびに変わる番号。ROS 側はこれが変わったことで読み込み直しの完了を知る
     ///
     /// terrain_ops（締固めの操作）は Scripting Define Symbols に AGX_GRID_CONTROL を定義したときだけ有効。
     /// </summary>
@@ -49,6 +51,7 @@ namespace PWRISimulator.ROS
 
         [Serializable] public class EpisodeStatus
         {
+            public int boot_id;          // シーンが立ち上がるたびに変わる番号
             public int request_id;
             public string episode_name;
             public int episode_index;
@@ -84,9 +87,13 @@ namespace PWRISimulator.ROS
 
         ROSConnection ros;
         float lastStatusTime = -999f;
+        bool reloading = false;          // 読み込み直しを始めたら、このオブジェクトは何もしない
 
         void Start()
         {
+            // シーンが立ち上がるたびに新しい番号を作る（System.Random と区別するため UnityEngine. を付ける）
+            Status.boot_id = UnityEngine.Random.Range(1, int.MaxValue);
+
             ros = ROSConnection.GetOrCreateInstance();
             ros.Subscribe<StringMsg>(cmdTopic, OnEpisodeCmd);
             ros.RegisterPublisher<StringMsg>(statusTopic);
@@ -108,6 +115,12 @@ namespace PWRISimulator.ROS
                     case "phase":
                         Status.phase = cmd.phase;
                         break;
+                    case "reload":                       // シーンを読み込み直す
+                        if (reloading) return;           // 読み込み直しの途中に届いた指令は無視
+                        reloading = true;
+                        Status.phase = "reloading";
+                        SceneReloader.Reload();          // 実際の読み込み直しは次のフレームで行われる
+                        return;                          // このオブジェクトは破棄されるので、状態は送らない
                     default:
                         Debug.LogWarning($"SimEpisodeManager: 不明なコマンド {cmd.command}");
                         break;
@@ -210,8 +223,18 @@ namespace PWRISimulator.ROS
 
         void Update()
         {
+            if (reloading) return;               // 読み込み直しの途中は古い状態を送らない
             if (Time.time - lastStatusTime < 1f / statusRate) return;
             PublishStatus();
+        }
+
+        // 破棄されるとき（シーンの読み込み直し・Play の停止）にSubscribeを解除する。
+        // ROSConnection はシーンをまたいで残る可能性があり、解除しないと
+        // 破棄された古い SimEpisodeManager に指令が届いてエラーになる
+        void OnDestroy()
+        {
+            if (ros != null)
+                ros.Unsubscribe(cmdTopic);
         }
 
         void PublishStatus()
