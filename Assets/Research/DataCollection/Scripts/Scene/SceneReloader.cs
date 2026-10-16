@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Unity.Robotics.ROSTCPConnector;
+using System.Reflection;
 #if UNITY_EDITOR
 using UnityEditor.SceneManagement;
 #endif
@@ -60,6 +61,7 @@ namespace PWRISimulator.ROS
             // 読み込み直しの前に明示的に閉じる（関門1の段階Dで、10回の読み込み直しで接続が7本に増えることを確認）
             foreach (var ros in Object.FindObjectsOfType<ROSConnection>())
                 ros.Disconnect();
+            ClearHudHeaders();
 
             if (scene.buildIndex >= 0)
             {
@@ -77,5 +79,15 @@ namespace PWRISimulator.ROS
 #endif
             }
         }
+
+        static void ClearHudHeaders()
+        {
+            var field = typeof(HudPanel).GetField("s_HeaderContents", BindingFlags.NonPublic | BindingFlags.Static);
+            if (field?.GetValue(null) is System.Collections.IDictionary headers)
+                headers.Clear();
+            else
+                Debug.LogWarning("SceneReloader: HudPanel.s_HeaderContents が見つかりません（ROS-TCP-Connector の版が変わった可能性）");
+        }
+
     }
 }
