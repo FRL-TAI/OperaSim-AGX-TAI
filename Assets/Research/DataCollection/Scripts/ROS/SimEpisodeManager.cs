@@ -102,6 +102,7 @@ namespace PWRISimulator.ROS
 
         void OnEpisodeCmd(StringMsg msg)
         {
+            EpisodeCommand cmd = null;
             try
             {
                 var cmd = JsonUtility.FromJson<EpisodeCommand>(msg.data);
@@ -129,6 +130,10 @@ namespace PWRISimulator.ROS
             catch (Exception e)
             {
                 Status.error = e.Message;
+                // setup の失敗も、その指令の request_id を付けて返す。
+                // 付けないと ROS 側はエラーの内容を受け取れず、単なる時間切れに見えてしまう
+                if (cmd != null && cmd.command == "setup")
+                    Status.request_id = cmd.request_id;
                 Debug.LogException(e);
             }
             PublishStatus();
