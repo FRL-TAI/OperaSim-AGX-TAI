@@ -78,10 +78,12 @@ namespace PWRISimulator.ROS
             var fPen = new agx.Vec3();
             var tPen = new agx.Vec3();
             t.getPenetrationForce(s, ref fPen, ref tPen);
+            // 4つとも「排土板が土から受ける力」にそろえる。AGX の API はいずれもこの向きの値を返すので、符号を反転しない。
+            // AGXUnity の ShowForces は Separation / Deformation / Contact だけを反転して表示しているが、そのまま使うと Penetration と向きが逆になる
             Vector3 pen = ToBaseFLU(fPen);
-            Vector3 sep = ToBaseFLU(-t.getSeparationContactForce(s));
-            Vector3 def = ToBaseFLU(-t.getDeformationContactForce(s));
-            Vector3 con = ToBaseFLU(-t.getContactForce(s));
+            Vector3 sep = ToBaseFLU(t.getSeparationContactForce(s));
+            Vector3 def = ToBaseFLU(t.getDeformationContactForce(s));
+            Vector3 con = ToBaseFLU(t.getContactForce(s));
             Add("F_total", pen + sep + def + con);
             Add("F_pen", pen);
             Add("F_sep", sep);
