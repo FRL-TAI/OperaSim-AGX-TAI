@@ -108,7 +108,10 @@ namespace Awsim.Entity
 
         public void OnDisable()
         {
-            Simulation.Instance.StepCallbacks.SimulationPost -= DoFixedUpdate;
+            // シーンを閉じるときは Simulation が先に破棄されていることがある。
+            // Simulation.Instance と書くと新しく作り直してしまうので、残っているときだけ登録を外す
+            if (Simulation.HasInstance)
+                Simulation.Instance.StepCallbacks.SimulationPost -= DoFixedUpdate;
         }
 
         public void DoFixedUpdate()
