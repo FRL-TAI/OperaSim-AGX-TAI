@@ -1,9 +1,9 @@
 # ShowShovelForces：排土板にかかる土の反力の表示
 
-## 1. 該当ファイル・コミット
+## 1. 該当ファイル
 | 項目 | 内容 |
 | --- | --- |
-| ファイル | `Assets/Research/DataCollection/Scripts/Debug/ShowShovelForces.cs` |
+| ファイル | `Assets/Research/DataCollection/Scripts/UI/ShowShovelForces.cs` |
 | 取り付け先 | シーンの `DataCollection` オブジェクト |
 
 
@@ -41,12 +41,13 @@ Game ビューの右上に「Shovel forces」というウィンドウが開き�
 | Deformer force | 排土板が切削方向以外（後ろ・横）に土を押しのけるときの力 | 排土板を下ろしての後退、アングルを付けた前進、旋回 |
 | Contact force | 排土板の面が、まだ削られていない地面に直接押し付けられたときの力 | 排土板を地面に押し付けて静止したとき |
 
-値は、AGXUnity の `DeformableTerrain.ShowForces()` 内で agxTerrain の API（`getPenetrationForce`、`getSeparationContactForce`、`getDeformationContactForce`、`getContactForce`）から取得されている。Separation・Deformer・Contact は AGXUnity 側で符号を反転して表示し、Penetration は反転していない。
+値は、AGXUnity の `DeformableTerrain.ShowForces()` 内で agxTerrain の API（`getPenetrationForce`、`getSeparationContactForce`、`getDeformationContactForce`、`getContactForce`）から取得されている。Separation・Deformer・Contact は AGXUnity 側で符号を反転して表示し、Penetration は反転していない。そのため、このウィンドウでは Penetration とほかの3つの向きがそろっていない。`BladeStatePublisher` は4つとも反転せず、「排土板が土から受ける力」の向きにそろえて配信している。
 
 ### 仕様上の注意
 
-- **座標系：** 表示は AGX のワールド座標系の値で、車体基準ではない。`BladeStatePublisher` の値（車体基準）とは成分の並びが異なるため、比べるときは合力の大きさ（各成分の2乗和の平方根）で比べる。
-- **対象の Shovel：** 地形に登録された最初の Shovel の力だけを表示する。無効化された機体の Shovel は Play 開始時に取り除かれるため、MainScene で d37pxi_24 だけを有効にしている場合は、その排土板の力が表示される。
+- **座標系と符号：** 表示は AGX のワールド座標系の値で、車体基準ではない。`BladeStatePublisher` の値（車体基準）とは成分の並びが異なり、Separation・Deformer・Contact は符号も逆になる。比べるときは、それぞれの力の大きさ（各成分の2乗和の平方根）で比べる。
+- **対象の Shovel：** 地形に登録された最初の Shovel の力だけを表示する。無効化された機体の Shovel は Play 開始時に取り除かれるため、d37pxi_24 だけを有効にしている場合（MainScene でそのように設定した場合や DataCollectionScene）は、その排土板の力が表示される。
+- **読み込み直し：** シーンを読み込み直すと、ウィンドウは閉じた状態に戻る。開き直すには、もう一度「Toggle Shovel Forces」を選ぶ。
 - **表示のみ：** 値は画面に表示されるだけで、記録・配信はされない。データとして使う場合は `BladeStatePublisher` を用いる。
 - **粒子からの力：** 排土板の前でこぼれた土の粒子は、既定では排土板に力を返さない（AGX マニュアル 23.19）。そのため、表示される力に粒子からの力は含まれない。
 

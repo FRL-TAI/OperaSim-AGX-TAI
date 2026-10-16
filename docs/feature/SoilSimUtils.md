@@ -1,6 +1,6 @@
 # SoilSimUtils：データ収集用の共通処理
 
-## 1. 該当ファイル・コミット
+## 1. 該当ファイル
 | 項目 | 内容 |
 | --- | --- |
 | ファイル | `Assets/Research/DataCollection/Scripts/Terrain/SoilSimUtils.cs` |

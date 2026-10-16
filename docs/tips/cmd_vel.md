@@ -57,7 +57,7 @@ OperaSim-AGX のブルドーザでは、走行指令の受信と、その指令�
 ### 3.1 Movement Control Type を `Twist Command` に変更する
 
 1. Unity で Play を **停止した状態（編集モード）** にする。
-2. Hierarchy で `MainScene` > `d37pxi_24` を選択する。
+2. Hierarchy で、使っているシーン（`MainScene` や `DataCollectionScene`）の `d37pxi_24` を選択する。
 3. Inspector で `Bulldozer Input (Script)` を展開する。
 4. **`Movement Control Type`** を `Actuator Command` から **`Twist Command`** に変更する。
 5. **Ctrl+S** でシーンを保存する。

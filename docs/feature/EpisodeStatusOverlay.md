@@ -1,6 +1,6 @@
 # EpisodeStatusOverlay：データ収集の実行状況の表示
 
-## 1. 該当ファイル・コミット
+## 1. 該当ファイル
 | 項目 | 内容 |
 | --- | --- |
 | ファイル | `Assets/Research/DataCollection/Scripts/UI/EpisodeStatusOverlay.cs` |
@@ -24,13 +24,13 @@
 | --- | --- |
 | エピソード | 何番目のエピソードか（「4 / 60」のように1始まりで表示） |
 | 名前 | エピソード名（`flat_constant` など） |
-| 状態 | 進行状況（setup / lowering / running / raising / returning / done など） |
+| 状態 | 進行状況（reloading / setup / lowering / running / raising / done / finished / idle） |
 | 粘着力 c / 摩擦角 φ / 密度 ρ / 膨張率 | AGX 本体から読み戻した土質パラメータ |
 | 地形の加工 | 要求された地形の加工の件数と、加工したマスの数。締固め操作（`AGX_GRID_CONTROL`）が有効か |
 | 時刻 | シミュレーション時刻 [s] |
 | エラー | `SimEpisodeManager` で発生したエラー（あるときのみ、赤字） |
 
-表示は `SimEpisodeManager` が状態を更新する頻度（既定 5 Hz）で変わる。
+表示は `SimEpisodeManager` の `Status` を毎フレーム読んで描く。`phase` は ROS2 側の指令を受けた時点、土質パラメータは状態の送信のたび（既定 5 Hz）に更新される。
 
 ## 4. 使い方
 
@@ -48,3 +48,5 @@
 Play すると、**Game タブ**の右下に「データ収集」の枠が表示される。Scene タブには表示されない。
 
 Play 直後、ROS2 側から指令が来る前は、エピソード「-」、名前「-」、状態「idle」と、Inspector の材料アセットの土質パラメータが表示される。
+
+データ収集中は、エピソードごとにシーンを読み込み直すので、この表示も毎回作り直される。読み込み直しの直後は一瞬「-」「idle」に戻り、ROS2 側から setup 指令が届くと、そのエピソードの内容に変わる。

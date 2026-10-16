@@ -1,6 +1,6 @@
 # BladeStatePublisher：排土板まわりの状態の配信
 
-## 1. 該当ファイル・コミット
+## 1. 該当ファイル
 | 項目 | 内容 |
 | --- | --- |
 | ファイル | `Assets/Research/DataCollection/Scripts/ROS/BladeStatePublisher.cs` |
@@ -18,9 +18,10 @@ OperaSim-AGX の既存のトピックには排土板の反力が含まれてお�
 ## 3. 実装の内容
 
 ### 仕組み
-- AGX の1ステップの計算が終わった直後（`Simulation.Instance.StepCallbacks.PostStepForward`）に値を読み出し、`publishRate`（既定 50 Hz）の間隔で配信する。
+- AGX の1ステップの計算が終わった直後（`Simulation.Instance.StepCallbacks.PostStepForward`）に値を読み出し、`publishRate`（既定 50 Hz）の間隔で配信する。時間刻み（0.02 s）は浮動小数点の誤差でわずかに短くなることがあるため、半ステップ分の余裕を持たせて間隔を判定している（余裕がないと1ステップおきに飛ばされて 25 Hz になる）。
+- 破棄されるとき（シーンの読み込み直し・Play の停止）は、`OnDestroy` で `Simulation.HasInstance` を確かめてから毎ステップの処理の登録を外す（`Simulation.Instance` と書くと、破棄済みの `Simulation` を作り直してしまうため）。
 - すべての値を1つの `Float64MultiArray` にまとめ、**各値の名前を `layout.dim[0].label` にカンマ区切りで入れる**。受信側は名前で値を取り出せるので、項目を追加しても受信側の修正は不要。
-- 排土板の反力は、AGXUnity の `DeformableTerrain.ShowForces()` と同じ API・同じ符号の扱いで取得する。
+- 排土板の反力は、AGXUnity の `DeformableTerrain.ShowForces()` と同じ API で取得する。**4つの力はすべて「排土板が土から受ける力」の向きにそろえ、符号を反転しない。** AGXUnity の `ShowForces()` は Separation・Deformation・Contact の3つだけを反転して表示しているが、そのまま使うと Penetration と向きが逆になるため（関門1で、履帯の駆動力との相関から確認して修正）。
 
 ### 座標系
 | 対象 | 座標系 |
@@ -32,7 +33,7 @@ OperaSim-AGX の既存のトピックには排土板の反力が含まれてお�
 | 名前 | 単位 | 内容 |
 | --- | --- | --- |
 | `sim_time` | s | シミュレーション時刻 |
-| `F_total_x/y/z` | N | 下の4つの力の合計（排土板にかかる力の合力） |
+| `F_total_x/y/z` | N | 下の4つの力の合計（排土板が土から受ける力の合力）。土を押して前進中は `F_total_x` が負 |
 | `F_pen_x/y/z` | N | 貫入抵抗。刃先が削られていない地面に食い込むときの抵抗 |
 | `F_sep_x/y/z` | N | 分離抵抗。前方へ切削・押土するとき、排土板の前の土塊から受ける力。前進時に支配的 |
 | `F_def_x/y/z` | N | 変形抵抗。後退や横方向など、切削方向以外に土を押しのけるときの力 |
@@ -102,3 +103,6 @@ def on_blade_state(msg):
 - 排土板の前でこぼれた土の粒子は、既定では排土板に力を返さない（AGX マニュアル 23.19）。そのため、反力に粒子からの力は含まれない。
 - `ground_ahead` などの地面の高さは Unity の `Terrain.SampleHeight` で求めている。排土板の前の土の山が地形の高さに含まれるかどうかは、その土が地形に戻っているかによる。
 - 地表の締固めの平均（`state_compaction_*`）は、こちらで定義した近似であり、AGX が内部で反力の計算に使う値の求め方とは一致しない。
+- これまでの試験（直進・旋回・後退を含む）では、`F_def_*` と `F_con_*` は常に 0 だった。使われていないのかは、`bull_ope` の関門3で確かめる。
+- `ShowShovelForces` のウィンドウとは、Separation・Deformer・Contact の符号が逆になる（上記）。比べるときは大きさで比べる。
+- このスクリプトの配信はシーンの読み込み直しのたびに作り直される。読み込み直しの直後、AGX の初期化が終わるまでの短い間は配信されない（`bull_ope` は新しいシーンのトピックがそろうまで待つ）。
