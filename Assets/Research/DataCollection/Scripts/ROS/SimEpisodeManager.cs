@@ -105,7 +105,7 @@ namespace PWRISimulator.ROS
             EpisodeCommand cmd = null;
             try
             {
-                var cmd = JsonUtility.FromJson<EpisodeCommand>(msg.data);
+                cmd = JsonUtility.FromJson<EpisodeCommand>(msg.data);
                 switch (cmd.command)
                 {
                     case "setup":
