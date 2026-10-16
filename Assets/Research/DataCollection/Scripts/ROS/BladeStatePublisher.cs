@@ -68,7 +68,10 @@ namespace PWRISimulator.ROS
             if (t == null || s == null) return;
 
             double time = Time.fixedTimeAsDouble;
-            if (time - lastPublishTime < 1.0 / publishRate) return;
+            // 1ステップ（Time.fixedDeltaTime）は浮動小数点の誤差で 0.02 よりわずかに小さいことがあり、
+            // 余裕なしで比べると1ステップおきに配信が飛ばされて 25 Hz になる
+            // 半ステップ分の余裕を持たせて、50 Hz の設定なら毎ステップ配信されるようにする
+            if (time - lastPublishTime < 1.0 / publishRate - 0.5 * Time.fixedDeltaTime) return;
             lastPublishTime = time;
             values.Clear();
 
