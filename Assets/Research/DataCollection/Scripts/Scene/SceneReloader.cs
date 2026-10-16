@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Unity.Robotics.ROSTCPConnector;
 #if UNITY_EDITOR
 using UnityEditor.SceneManagement;
 #endif
@@ -52,6 +53,13 @@ namespace PWRISimulator.ROS
 
             var scene = SceneManager.GetActiveScene();
             Debug.Log($"SceneReloader: シーン {scene.name} を読み込み直します（{reloadCount} 回目）");
+
+            // ROSConnection（シーンの一部）は読み込み直しで破棄されるが、ROS-TCP-Connector は
+            // 破棄のときに接続を閉じない（OnDestroy がなく、Disconnect は OnApplicationQuit でしか呼ばれない）。
+            // 閉じないと古い接続が ROS-TCP-Endpoint に残り続け、ROS → Unity の指令が詰まることがあるので、
+            // 読み込み直しの前に明示的に閉じる（関門1の段階Dで、10回の読み込み直しで接続が7本に増えることを確認）
+            foreach (var ros in Object.FindObjectsOfType<ROSConnection>())
+                ros.Disconnect();
 
             if (scene.buildIndex >= 0)
             {
