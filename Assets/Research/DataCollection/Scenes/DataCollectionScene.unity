@@ -4384,6 +4384,7 @@ MonoBehaviour:
   shovel: {fileID: 659973830}
   referenceFrame: {fileID: 1892569716}
   aheadDistance: 0.5
+  behindDistance: 0.3
   profileStep: 0.25
   profileCount: 8
   wedgeLength: 1
