@@ -31,7 +31,8 @@
 | --- | --- | --- |
 | `d37pxi_24` の `Bulldozer Input` | `Movement Control Type` = `Twist Command` | ROS2 側から `/d37pxi_24/cmd_vel` で走らせるため（[Tips](../tips/cmd_vel.md)） |
 | `AGXUnity.Simulation`（シーンに保存） | Auto Stepping Mode = Fixed Update、Time Step = 0.02、Solver Settings = `SolverSettings` アセット | シミュレーションの時間刻み（50 Hz）とソルバーの設定をシーンで固定する |
-| 地形 | `FlatTerrainData` を複製した平らな地形 | 切削深さの計算の前提 |
+| 地形 | `FlatTerrainData` を複製した平らな地形。`DeformableTerrain` の Element Size = 0.3125 m、Maximum Depth = 5 m | 切削深さの計算の前提 |
+| Scripting Define Symbols | `AGX_GRID_CONTROL` を定義（`AGX_EXTRA_TERRAIN_API` は定義しない） | 締固めの程度の記録と、地形の加工（土の山を積むなど）を使うため |
 | 機体の初期位置 | 開始位置は ROS の座標でおよそ x = −10.0 m、y = 7.0 m、向き 0°（`global_pose`） | 前方に 10 m 以上の平らな地面を確保する。ROS 側の `SAFE_RADIUS`（20 m）はフィールドの端より内側に設定する |
 
 `ROSConnectionPrefab(Clone)`（ROS-TCP-Connector の接続）は、Play の開始時に各スクリプトの `ROSConnection.GetOrCreateInstance()` が作る。シーンの一部として作られるので、読み込み直しのたびに作り直される（[Tips](../tips/scene_reload_ros_connection.md)）。
@@ -69,4 +70,7 @@
   - `RealTimeTracker : Unity has skipped …` と `Critical Timing Problem: SkippedGameTime has decreased.`（シミュレーション時刻が 0 に戻るため）
   - `Exception … 'cfg/settings.cfg' does not exist`（Editor.log のみ。AGX のシミュレーションを作るたびに出る）
 - Play を止めた後、`FlatTerrainData.asset` などの地形のアセットが「変更あり」になることがある（`DeformableTerrain` が破棄のときに地形の高さを書き戻すため）。シーンの変更をコミットするときは、地形のアセットを混ぜない（`git restore` で戻す）。
-- 記録の最初の切削深さが約 13 cm になる（読み込み直し直後の排土板の位置が、ROS 側で測る基準の地面の高さより低い）。深さ 0 の基準は関門3で確かめる。
+- 記録の最初の切削深さが約 13 cm になる。シーンの初期状態で、排土板が地面に約 13 cm めり込んでいるため（刃先の高さ −0.13 m、刃先の真下の地面 0.00 m）。排土板を上げても地面はへこまず、力も最初の約 0.25 秒に 0.45 kN 以下が出るだけなので、シーンの初期状態は変えていない（`bull_ope` の関門3）
+- **地形のマスの大きさ（0.3125 m）：** 前後方向に 31 cm より細かい地形の変化は表せない。刃先が1マス進むごとに、深さ・力・刃先の真下の地面の高さが変動する（0.5 m/s で周期 約 0.6 秒）。マスを小さくすると計算が重くなるため、変えていない
+- 機体の質量は、剛体の Mass の合計で約 11,000 kg（`body_link` に手で入力された 9,300 kg に、腕・排土板などが別に加わる）。排土板を上げて 0.5 m/s で走るだけで、履帯の駆動力が約 32 kN かかる（転がり抵抗の係数 約 0.29）。履帯の関節の力には約 60,000 N·m の上限がある（`bull_ope` の関門5・段階7）
+- 使っている AGX Dynamics は 2.37.3.0。締固めの程度に応じたダイレイタンシー角の計算に不具合がある可能性がある（2.38.0.0 で修正）

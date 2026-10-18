@@ -172,5 +172,5 @@ ros2 topic pub --once /sim/episode_cmd std_msgs/msg/String '{data: "{\"command\"
 ## 5. 注意点
 - 土質パラメータの変更は AGX 本体の材料にだけ行うため、シーンを読み込み直すか Play を止めると、Inspector の材料アセットの値（dirt_1 の設定：c = 2100 Pa、φ = 39.98°、ρ = 1474 kg/m³、膨張率 1.28、ヤング率 6.5 MPa）に戻る。そのため、`reload` の後には必ず `setup` を送る。
 - 地形のリセットは高さと締固めを戻すが、`terrain_ops` 以外の方法で追加した材料の割り当ては失われることがある（AGX マニュアル 23.22 FAQ）。
-- AGX Dynamics 2.37.3.0 には、締固めに応じたダイレイタンシー角の計算のバグが残っている可能性がある（2.38.0.0 で修正、AGX 変更履歴 `61b41b0f3a`）。締固めを操作する `terrain_ops` を使う場合は、使っている AGX の版を確認する。
-- `terrain_ops` の処理（`AGX_GRID_CONTROL`）は、使っている AGX の版で API が使えるか未確認。
+- このプロジェクトで使っている AGX Dynamics 2.37.3.0 には、締固めに応じたダイレイタンシー角の計算の不具合が残っている可能性がある（2.38.0.0 で修正、AGX 変更履歴 `61b41b0f3a`）。締固めを操作する `terrain_ops`（`loose_layer_rect` で積む緩い土の山を含む）は、この影響を受ける可能性がある。
+- `terrain_ops` の処理（`AGX_GRID_CONTROL`）は、2.37.3.0 で動くことを確認済み（`bull_ope` の `pile_push` で `loose_layer_rect` を 30 回使い、すべて適用された）。`compaction_rect` は未確認。

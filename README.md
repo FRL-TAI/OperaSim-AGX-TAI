@@ -7,8 +7,8 @@
 
 
 ## ソフトウェア要件
-- Unity：2022.3.62f1
-- AGX：2.38.0.1(X64 VS2022)
+- Unity：2022.3.16f1
+- AGX：2.37.3.0（AGXUnity 5.0.1 に対応する版）
   - AGX (Core)
   - Particles
   - Granular
