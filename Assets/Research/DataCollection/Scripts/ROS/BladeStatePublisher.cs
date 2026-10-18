@@ -29,6 +29,7 @@ namespace PWRISimulator.ROS
 
         [Header("地面の高さ")]
         [SerializeField] float aheadDistance = 0.5f;      // ground_ahead を測る距離 [m]
+        [SerializeField] float behindDistance = 0.3f;     // ground_behind を測る距離 [m]（刃先の後ろ。削った後の地面）
         [SerializeField] float profileStep = 0.25f;       // 前方の断面を測る間隔 [m]
         [SerializeField] int profileCount = 8;            // 前方の断面の点数
 
@@ -105,6 +106,7 @@ namespace PWRISimulator.ROS
 
             // ---- 地面の高さ ----
             Add("ground_below", SoilSimUtils.GroundHeight(terrain, edgeMid));
+            Add("ground_behind", SoilSimUtils.GroundHeight(terrain, edgeMid - behindDistance * fwd));
             Add("ground_ahead", SoilSimUtils.GroundHeight(terrain, edgeMid + aheadDistance * fwd));
             for (int k = 1; k <= profileCount; k++)
             {
