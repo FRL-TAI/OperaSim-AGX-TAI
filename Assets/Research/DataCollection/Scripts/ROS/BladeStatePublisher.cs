@@ -15,10 +15,9 @@ namespace PWRISimulator.ROS
     /// 力は base_link 基準の ROS FLU 座標（x:前, y:左, z:上）。
     /// 位置は Unity のワールド座標を ROS の並び（x = Unity z, y = -Unity x, z = Unity y）にしたもの。
     ///
-    /// Player Settings の Scripting Define Symbols で次を定義すると、追加の値も取得する
-    /// （2.37 で API があるか未確認のため既定では無効。無効なら NaN）。
-    ///   AGX_GRID_CONTROL      : くさびの範囲の締固めの程度（state_compaction_*）
-    ///   AGX_EXTRA_TERRAIN_API : 前方の土塊の質量、そのステップの掘削体積
+    /// Player Settings の Scripting Define Symbols で次を定義すると、追加の値も取得する（無効なら NaN）。
+    ///   AGX_GRID_CONTROL      : くさびの範囲の締固めの程度（state_compaction_*）。このプロジェクトでは定義済み（2.37 で動作を確認）
+    ///   AGX_EXTRA_TERRAIN_API : 前方の土塊の質量、そのステップの掘削体積。2.37 で API があるか未確認のため定義していない
     /// </summary>
     public class BladeStatePublisher : MonoBehaviour
     {

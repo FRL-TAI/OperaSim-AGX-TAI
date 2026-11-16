@@ -3,7 +3,7 @@
 ## 概要
 土木機械（油圧ショベル・クローラダンプ・ブルドーザ）と土砂の挙動を再現するシミュレータ [OperaSim-AGX](https://github.com/pwri-opera/OperaSim-AGX) を、自身の研究用に拡張・実装した機能等を保存するリポジトリ。
 
-研究では、ブルドーザ（`d37pxi_24`）の排土板が土から受ける力などを ROS2 で記録し、土質パラメータ（粘着力 c、内部摩擦角 φ、密度 ρ など）を推定するニューラルネットワークの学習データを自動で集める。ROS2 側のデータ収集パッケージは `ws-bulldozer` リポジトリの `bull_ope`（`docs/bull_ope.md`）。
+研究では、ブルドーザ（`d37pxi_24`）の排土板が土から受ける力などを ROS2 で記録し、土質パラメータ（粘着力 c、内部摩擦角 φ、密度 ρ など）を推定するニューラルネットワークの学習データを自動で集める。ROS2 側のデータ収集パッケージは [WS-Bulldozer](https://github.com/FRL-TAI/WS-Bulldozer) リポジトリの `bull_ope`（[docs/bull_ope/README.md](https://github.com/FRL-TAI/WS-Bulldozer/blob/main/docs/bull_ope/README.md)）。
 
 
 ## ソフトウェア要件
@@ -48,10 +48,11 @@
 Assets/Research/DataCollection/
 ├ Scenes/     DataCollectionScene.unity（データ収集用のシーン）
 ├ Scripts/
-│  ├ ROS/      BladeStatePublisher.cs、SimEpisodeManager.cs
-│  ├ Scene/    SceneReloader.cs
-│  ├ Terrain/  SoilSimUtils.cs
-│  └ UI/       EpisodeStatusOverlay.cs、ShowShovelForces.cs
+│  ├ ROS/          BladeStatePublisher.cs、SimEpisodeManager.cs
+│  ├ Scene/        SceneReloader.cs
+│  ├ Terrain/      SoilSimUtils.cs、CompactionProbe.cs
+│  ├ UI/           EpisodeStatusOverlay.cs
+│  └ Experiments/  検証用：ShowShovelForces.cs、MassReport.cs、TrackWheelReport.cs
 └ Terrain/    FlatTerrainData.asset（平らな地形のデータ）
 ```
 
@@ -62,7 +63,10 @@ Assets/Research/DataCollection/
 - [シーンの読み込み直しによる初期化](docs/feature/SceneReloader.md)
 - [データ収集の実行状況の表示](docs/feature/EpisodeStatusOverlay.md)
 - [データ収集用の共通処理](docs/feature/SoilSimUtils.md)
-- [ブルドーザのブレードに生じる抵抗力の表示](docs/feature/ShowShovelForces.md)
+- [締固めの記録の配信](docs/feature/CompactionProbe.md)
+- [ブルドーザのブレードに生じる抵抗力の表示](docs/feature/ShowShovelForces.md)（検証用）
+- [機体の質量の確認](docs/feature/MassReport.md)（検証用）
+- [履帯の車輪と接地長の確認](docs/feature/TrackWheelReport.md)（検証用）
 
 ### OperaSim-AGX 本体への変更
 | ファイル | 変更 | 理由 |

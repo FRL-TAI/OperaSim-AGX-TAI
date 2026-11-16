@@ -5,14 +5,14 @@
 | --- | --- |
 | シーン | `Assets/Research/DataCollection/Scenes/DataCollectionScene.unity` |
 | 地形のデータ | `Assets/Research/DataCollection/Terrain/FlatTerrainData.asset`（OperaSim の `FlatTerrainData` を複製したもの） |
-| 対になる ROS2 側 | `ws-bulldozer` リポジトリの `bull_ope` パッケージ（`docs/bull_ope.md`） |
+| 対になる ROS2 側 | `ws-bulldozer` リポジトリの `bull_ope` パッケージ（[docs/bull_ope/README.md](https://github.com/FRL-TAI/WS-Bulldozer/blob/main/docs/bull_ope/README.md)） |
 
 
 ## 2. 目的
 土質パラメータ推定用の学習データを集めるための専用のシーン。
 
 - 切削深さを「元の地面の高さ − 刃先の高さ」で求めるため、ブルドーザの前方に平らな地面を用意する。
-- データ収集に使う自作のコンポーネントを1つのオブジェクト（`DataCollection`）にまとめる。
+- 自作のコンポーネントは、データ収集に使うもの（`DataCollection`）と、検証・実験に使うもの（`Experiments`）の2つのオブジェクトにまとめる。GameObject はなるべく増やさない。
 - 毎エピソード、このシーンを読み込み直すことで、機体・地形・AGX の状態をすべて同じ初期状態に戻す（[SceneReloader](SceneReloader.md)）。
 
 
@@ -24,9 +24,18 @@
 | [SimEpisodeManager](SimEpisodeManager.md) | `/sim/episode_cmd` の指令（setup / phase / reload）を処理し、`/sim/episode_status` に状態を配信 | Terrain、Shovel、Reference Frame |
 | [SceneReloader](SceneReloader.md) | シーンの読み込み直し | 設定する欄はない |
 | [EpisodeStatusOverlay](EpisodeStatusOverlay.md) | Game ビューの右下に実行状況を表示 | Manager（同じオブジェクトの `SimEpisodeManager`） |
-| [ShowShovelForces](ShowShovelForces.md) | AGXUnity の反力の確認用ウィンドウを開く（デバッグ用） | Terrain |
 
-### 3.2 そのほかの設定
+### 3.2 Experiments オブジェクト
+**方針：** 検証・実験のためのコンポーネント（学習データの収集そのものには使わないもの）は、新しい GameObject を作らず、すべて `Experiments` に付ける。普段使わないものは、コンポーネントを無効にしておく。スクリプトは `Scripts/Experiments/` に置く（`CompactionProbe` は締固めの記録として `Scripts/Terrain/` に置いている）。
+
+| コンポーネント | 普段の状態 | 役割 | 主な設定 |
+| --- | --- | --- | --- |
+| [CompactionProbe](CompactionProbe.md) | 有効 | `record_compaction` のエピソードの間、走路に沿った地形の高さと締固めの程度を `/sim/compaction_probe` に送る（それ以外のエピソードでは何もしない） | Terrain、Reference Frame（`body_link`）、Episode Manager、Left / Right Track |
+| [ShowShovelForces](ShowShovelForces.md) | 有効（ウィンドウは手動で開く） | AGXUnity の反力の確認用ウィンドウを開く（デバッグ用） | Terrain |
+| [MassReport](MassReport.md) | 無効 | 機体の剛体の質量と合計を Console に出す | Machine Root（`d37pxi_24`） |
+| [TrackWheelReport](TrackWheelReport.md) | 無効 | 履帯の車輪と、転輪の間隔（接地長の目安）を Console に出す | Track（`TrackL`） |
+
+### 3.3 そのほかの設定
 | 対象 | 設定 | 理由 |
 | --- | --- | --- |
 | `d37pxi_24` の `Bulldozer Input` | `Movement Control Type` = `Twist Command` | ROS2 側から `/d37pxi_24/cmd_vel` で走らせるため（[Tips](../tips/cmd_vel.md)） |
@@ -51,7 +60,7 @@
 
 
 ## 5. 確認済みの動作（関門1）
-`bull_ope` の `analysis/reports/gate1_stress.md` で、次を確認した。
+`bull_ope` の [docs/bull_ope/validation/gate1_stress.md](https://github.com/FRL-TAI/WS-Bulldozer/blob/main/docs/bull_ope/validation/gate1_stress.md) で、次を確認した。
 
 | 項目 | 結果 |
 | --- | --- |

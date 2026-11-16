@@ -49,8 +49,9 @@
   "episode_index": 3,
   "total_episodes": 60,
   "phase": "setup",
+  "record_compaction": false,
   "soil": {"cohesion": 10000, "friction_angle_deg": 30, "density": 1600,
-           "swell_factor": -1, "youngs_modulus": -1},
+           "swell_factor": -1, "youngs_modulus": -1, "hardening_ke": -1, "hardening_ne": -1},
   "terrain_ops": []
 }
 ```
@@ -63,6 +64,8 @@
 | `soil.density` | 密度 [kg/m³] |
 | `soil.swell_factor` | 膨張率 [−] |
 | `soil.youngs_modulus` | ヤング率 [Pa] |
+| `soil.hardening_ke`、`soil.hardening_ne` | 硬化の係数 KE・指数 NE [−]（`getCompactionProperties()` に設定する。締固めのしやすさ） |
+| `record_compaction` | true なら、このエピソードの間 [CompactionProbe](CompactionProbe.md) が締固めを記録して送る |
 | `terrain_ops` | 地形の加工のリスト（下記） |
 
 `soil` の各値は、負の値なら「変更しない」と解釈する。
@@ -70,7 +73,7 @@
 処理の流れは次のとおり。
 
 1. 受信した JSON を `JsonUtility` で読み込む。
-2. 土質パラメータを AGX 本体の地形材料に設定する（`terrain.Native.getTerrainMaterial().getBulkProperties()` の各 set メソッド。角度はラジアンに変換）。Inspector の材料アセットは書き換えない。
+2. 土質パラメータを AGX 本体の地形材料に設定する（`terrain.Native.getTerrainMaterial().getBulkProperties()` の各 set メソッド。角度はラジアンに変換。KE・NE は `getCompactionProperties()` の `setHardeningConstantKE/NE`）。Inspector の材料アセットは書き換えない。
 3. こぼれた土の粒子をすべて削除する（AGX マニュアル 23.22 FAQ の方法）。
 4. `DeformableTerrain.ResetHeights()` で地形の高さを初期状態に戻す。内部で AGX の `setHeights` が呼ばれ、締固めの程度もリセットされる。
 5. 地形の加工（`terrain_ops`）があれば適用する（`AGX_GRID_CONTROL` 有効時のみ）。
@@ -100,7 +103,8 @@
 ```json
 {"boot_id": 1733042, "request_id": 12, "episode_name": "flat_constant", "episode_index": 3,
  "total_episodes": 60, "phase": "running", "cohesion": 10000.0, "friction_angle_deg": 30.0,
- "density": 1600.0, "swell_factor": 1.28, "youngs_modulus": 6500000.0, "ops_requested": 0,
+ "record_compaction": false, "density": 1600.0, "swell_factor": 1.28, "youngs_modulus": 6500000.0,
+ "hardening_ke": 1.0, "hardening_ne": 0.0833, "ops_requested": 0,
  "ops_applied": true, "ops_cells": 0, "grid_control_enabled": false, "reset_count": 1,
  "sim_time": 123.4, "error": ""}
 ```
@@ -111,7 +115,8 @@
 | `request_id` | 直近に処理した setup 指令の番号（シーンの立ち上がり直後は −1）。ROS2 側は、これが自分の送った番号になるまで待つ |
 | `episode_name` / `episode_index` / `total_episodes` | 現在のエピソード名、番号（0 始まり）、総数 |
 | `phase` | 進行状況（上の `phase` の値。立ち上がり直後は `idle`） |
-| `cohesion` 〜 `youngs_modulus` | **AGX 本体から読み戻した**土質パラメータ。学習データのラベルとして使う |
+| `record_compaction` | 直近の setup の `record_compaction`（CompactionProbe が記録を始めるかの判定に使う） |
+| `cohesion` 〜 `youngs_modulus`、`hardening_ke`、`hardening_ne` | **AGX 本体から読み戻した**土質パラメータ。学習データのラベルとして使う |
 | `ops_requested` / `ops_applied` / `ops_cells` | 地形の加工の要求件数、成否、加工したマスの数 |
 | `grid_control_enabled` | `AGX_GRID_CONTROL` が有効か |
 | `reset_count` | このシーンで地形をリセットした回数（読み込み直しで 0 に戻る） |
@@ -173,4 +178,4 @@ ros2 topic pub --once /sim/episode_cmd std_msgs/msg/String '{data: "{\"command\"
 - 土質パラメータの変更は AGX 本体の材料にだけ行うため、シーンを読み込み直すか Play を止めると、Inspector の材料アセットの値（dirt_1 の設定：c = 2100 Pa、φ = 39.98°、ρ = 1474 kg/m³、膨張率 1.28、ヤング率 6.5 MPa）に戻る。そのため、`reload` の後には必ず `setup` を送る。
 - 地形のリセットは高さと締固めを戻すが、`terrain_ops` 以外の方法で追加した材料の割り当ては失われることがある（AGX マニュアル 23.22 FAQ）。
 - このプロジェクトで使っている AGX Dynamics 2.37.3.0 には、締固めに応じたダイレイタンシー角の計算の不具合が残っている可能性がある（2.38.0.0 で修正、AGX 変更履歴 `61b41b0f3a`）。締固めを操作する `terrain_ops`（`loose_layer_rect` で積む緩い土の山を含む）は、この影響を受ける可能性がある。
-- `terrain_ops` の処理（`AGX_GRID_CONTROL`）は、2.37.3.0 で動くことを確認済み（`bull_ope` の `pile_push` で `loose_layer_rect` を 30 回使い、すべて適用された）。`compaction_rect` は未確認。
+- `terrain_ops` の処理（`AGX_GRID_CONTROL`）は、2.37.3.0 で動くことを確認済み（`bull_ope` の `pile_push` で `loose_layer_rect` を 30 回使い、すべて適用された。`compaction_rect` は `ex_compaction_*` のエピソード（卒研のフェーズ0）で、設定した締固めの程度が CompactionProbe の記録に現れることを確認した）。

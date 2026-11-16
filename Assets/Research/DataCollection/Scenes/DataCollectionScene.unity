@@ -4322,7 +4322,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 118486667}
-  - component: {fileID: 118486666}
   - component: {fileID: 118486665}
   - component: {fileID: 118486664}
   - component: {fileID: 118486663}
@@ -4396,7 +4395,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 118486662}
+  m_GameObject: {fileID: 1062378301}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 06efb70b70be13f408fe7b63182b02b7, type: 3}
@@ -48077,6 +48076,7 @@ GameObject:
   - component: {fileID: 1062378302}
   - component: {fileID: 1062378305}
   - component: {fileID: 1062378304}
+  - component: {fileID: 118486666}
   m_Layer: 0
   m_Name: Experiments
   m_TagString: Untagged

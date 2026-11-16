@@ -3,8 +3,8 @@
 ## 1. 該当ファイル
 | 項目 | 内容 |
 | --- | --- |
-| ファイル | `Assets/Research/DataCollection/Scripts/UI/ShowShovelForces.cs` |
-| 取り付け先 | シーンの `DataCollection` オブジェクト |
+| ファイル | `Assets/Research/DataCollection/Scripts/Experiments/ShowShovelForces.cs` |
+| 取り付け先 | シーンの `Experiments` オブジェクト（検証用のコンポーネントの置き場所） |
 
 
 ## 2. 目的
@@ -22,6 +22,7 @@ AGXUnity の `DeformableTerrain` には、Shovel にかかる力を表示する�
 using UnityEngine;
 using AGXUnity.Model;
 
+/// <summary>（省略）</summary>
 public class ShowShovelForces : MonoBehaviour
 {
     [SerializeField] DeformableTerrain terrain;
@@ -55,7 +56,7 @@ Game ビューの右上に「Shovel forces」というウィンドウが開き�
 ## 4. 使い方
 
 ### 設定
-`DataCollection` オブジェクトに追加し、Inspector の `Terrain` の欄にシーンの `Terrain` を割り当てる。
+`Experiments` オブジェクトに追加し、Inspector の `Terrain` の欄にシーンの `Terrain` を割り当てる。
 
 ### 表示する方法
 1. Play を押す。

@@ -209,7 +209,6 @@ namespace PWRISimulator.ROS
                 switch (op.type)
                 {
                     case "compaction_rect":
-                        // TODO(要確認): 2.37 での名前と引数
                         n = SoilSimUtils.ForEachCellInRect(terrain, origin, fwd, op.x_start, op.x_end, op.y_min, op.y_max,
                             idx => grid.setSurfaceCompactionToDepth(idx, op.value, op.depth));
                         break;

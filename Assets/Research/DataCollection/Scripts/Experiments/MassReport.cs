@@ -1,6 +1,10 @@
 using System.Collections;
 using UnityEngine;
 
+/// <summary>
+/// 検証用（Experiments に付ける）。Play の開始から1秒後に、machineRoot 以下の剛体の質量と合計を Console に出す。
+/// machineRoot が空なら、このオブジェクト以下を調べる。
+/// </summary>
 public class MassReport : MonoBehaviour
 {
     [SerializeField] Transform machineRoot;
@@ -12,7 +16,6 @@ public class MassReport : MonoBehaviour
 
         double total = 0.0;
         int missing = 0;
-        
         var root = machineRoot != null ? machineRoot : transform;
         foreach (var rb in root.GetComponentsInChildren<AGXUnity.RigidBody>())
         {

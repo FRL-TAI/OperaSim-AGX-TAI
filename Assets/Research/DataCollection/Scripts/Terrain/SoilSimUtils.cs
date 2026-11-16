@@ -15,7 +15,6 @@ namespace PWRISimulator.ROS
         /// <summary>刃先（Cutting Edge）の両端と中点（ワールド座標）</summary>
         public static Vector3 CuttingEdge(DeformableTerrainShovel shovel, out Vector3 start, out Vector3 end)
         {
-            // TODO(要確認): AGXUnity の Line / IFrame のプロパティ名
             start = shovel.CuttingEdge.Start.Position;
             end = shovel.CuttingEdge.End.Position;
             return 0.5f * (start + end);
