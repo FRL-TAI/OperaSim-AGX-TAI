@@ -21287,7 +21287,6 @@ GameObject:
   - component: {fileID: 488108195}
   - component: {fileID: 488108200}
   - component: {fileID: 488108201}
-  - component: {fileID: 488108202}
   m_Layer: 0
   m_Name: d37pxi_24
   m_TagString: robot
@@ -21731,18 +21730,6 @@ MonoBehaviour:
   VWDecelFactor: 1
   VWRatioFactor: 0.9
   MaxTrackVel: 1
---- !u!114 &488108202
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 488108182}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 743bdaa066d508048937662d961d48f1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!4 &488725828 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: bdb446f0515c0a34c83d7d044ffd3824, type: 3}
@@ -24032,7 +24019,6 @@ GameObject:
   - component: {fileID: 547941647}
   - component: {fileID: 547941649}
   - component: {fileID: 547941648}
-  - component: {fileID: 547941650}
   m_Layer: 0
   m_Name: AGXUnity.Model.TrackL
   m_TagString: Untagged
@@ -24097,18 +24083,6 @@ MonoBehaviour:
   - {fileID: 1109409206}
   - {fileID: 580387414}
   - {fileID: 1013797053}
---- !u!114 &547941650
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 547941646}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f21faf3f205503d438ba2e4e0ad89de1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &548383447
 GameObject:
   m_ObjectHideFlags: 0
@@ -44667,55 +44641,6 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -9151882856028843972, guid: e151193d88a50e54e872fde154213e76, type: 3}
---- !u!1 &1000308742
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1000308744}
-  - component: {fileID: 1000308743}
-  m_Layer: 0
-  m_Name: CompactionParamOverride
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1000308743
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1000308742}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 81103872682cb834a827b719346449a6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  terrain: {fileID: 573832392}
-  hardeningKE: 0
-  hardeningNE: 0.0833
-  conditionName: baseline
-  logFile: ResearchLogs/compaction/hardening_log.csv
---- !u!4 &1000308744
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1000308742}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -4.8431816, y: 1.1049287, z: -5.06679}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1002660436
 GameObject:
   m_ObjectHideFlags: 0
@@ -48150,8 +48075,10 @@ GameObject:
   m_Component:
   - component: {fileID: 1062378303}
   - component: {fileID: 1062378302}
+  - component: {fileID: 1062378305}
+  - component: {fileID: 1062378304}
   m_Layer: 0
-  m_Name: CompactionProbe
+  m_Name: Experiments
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -48174,14 +48101,13 @@ MonoBehaviour:
   episodeManager: {fileID: 118486664}
   leftTrack: {fileID: 547941649}
   rightTrack: {fileID: 614060113}
-  episodePrefix: ex_compaction
   xMin: -1
   xMax: 12
   trackWidth: 0.6
   controlOffset: 3.5
   depthLayers: 6
   sampleInterval: 1
-  outputFolder: ResearchLogs/compaction
+  probeTopic: /sim/compaction_probe
 --- !u!4 &1062378303
 Transform:
   m_ObjectHideFlags: 0
@@ -48197,6 +48123,32 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1062378304
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1062378301}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f21faf3f205503d438ba2e4e0ad89de1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  track: {fileID: 547941649}
+--- !u!114 &1062378305
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1062378301}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 743bdaa066d508048937662d961d48f1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  machineRoot: {fileID: 488108186}
 --- !u!1 &1067374239
 GameObject:
   m_ObjectHideFlags: 0
@@ -333266,4 +333218,3 @@ SceneRoots:
   - {fileID: 1230137616}
   - {fileID: 118486667}
   - {fileID: 1062378303}
-  - {fileID: 1000308744}

@@ -3,6 +3,8 @@ using UnityEngine;
 
 public class MassReport : MonoBehaviour
 {
+    [SerializeField] Transform machineRoot;
+
     IEnumerator Start()
     {
         // AGXUnity の初期化とシミュレーションの開始を待つ
@@ -10,7 +12,9 @@ public class MassReport : MonoBehaviour
 
         double total = 0.0;
         int missing = 0;
-        foreach (var rb in GetComponentsInChildren<AGXUnity.RigidBody>())
+        
+        var root = machineRoot != null ? machineRoot : transform;
+        foreach (var rb in root.GetComponentsInChildren<AGXUnity.RigidBody>())
         {
             if (rb.Native == null)
             {
