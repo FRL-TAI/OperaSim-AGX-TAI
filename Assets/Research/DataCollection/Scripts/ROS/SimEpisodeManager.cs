@@ -29,6 +29,7 @@ namespace PWRISimulator.ROS
         [Serializable] public class SoilSpec
         {
             public double cohesion = -1, friction_angle_deg = -1, density = -1, swell_factor = -1, youngs_modulus = -1;
+            public double hardening_ke = -1, hardening_ne = -1;
         }
 
         [Serializable] public class TerrainOp
@@ -58,6 +59,7 @@ namespace PWRISimulator.ROS
             public int total_episodes;
             public string phase;
             public double cohesion, friction_angle_deg, density, swell_factor, youngs_modulus;
+            public double hardening_ke, hardening_ne;
             public int ops_requested;
             public bool ops_applied;
             public int ops_cells;
@@ -171,6 +173,10 @@ namespace PWRISimulator.ROS
             if (s.density > 0) bulk.setDensity(s.density);
             if (s.swell_factor > 0) bulk.setSwellFactor(s.swell_factor);
             if (s.youngs_modulus > 0) bulk.setYoungsModulus(s.youngs_modulus);
+
+            var comp = terrain.Native.getTerrainMaterial().getCompactionProperties();
+            if (s.hardening_ke >= 0) comp.setHardeningConstantKE(s.hardening_ke);
+            if (s.hardening_ne >= 0) comp.setHardeningConstantNE(s.hardening_ne);
         }
 
         void RemoveAllParticles()
@@ -260,6 +266,10 @@ namespace PWRISimulator.ROS
             Status.density = bulk.getDensity();
             Status.swell_factor = bulk.getSwellFactor();
             Status.youngs_modulus = bulk.getYoungsModulus();
+
+            var comp = terrain.Native.getTerrainMaterial().getCompactionProperties();
+            Status.hardening_ke = comp.getHardeningConstantKE();
+            Status.hardening_ne = comp.getHardeningConstantNE();
         }
     }
 }
