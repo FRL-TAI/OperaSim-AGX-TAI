@@ -46,6 +46,7 @@ namespace PWRISimulator.ROS
             public int episode_index;
             public int total_episodes;
             public string phase;
+            public bool record_compaction;
             public SoilSpec soil;
             public TerrainOp[] terrain_ops;
         }
@@ -58,6 +59,7 @@ namespace PWRISimulator.ROS
             public int episode_index;
             public int total_episodes;
             public string phase;
+            public bool record_compaction;
             public double cohesion, friction_angle_deg, density, swell_factor, youngs_modulus;
             public double hardening_ke, hardening_ne;
             public int ops_requested;
@@ -151,6 +153,7 @@ namespace PWRISimulator.ROS
             Status.episode_index = cmd.episode_index;
             Status.total_episodes = cmd.total_episodes;
             Status.phase = string.IsNullOrEmpty(cmd.phase) ? "setup" : cmd.phase;
+            Status.record_compaction = cmd.record_compaction;
 
             ApplySoil(cmd.soil);
             RemoveAllParticles();
