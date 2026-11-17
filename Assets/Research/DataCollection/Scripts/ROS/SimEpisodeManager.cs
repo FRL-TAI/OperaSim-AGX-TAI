@@ -23,6 +23,9 @@ namespace PWRISimulator.ROS
     ///   boot_id：シーンが立ち上がるたびに変わる番号。ROS 側はこれが変わったことで読み込み直しの完了を知る
     ///
     /// terrain_ops（締固めの操作）は Scripting Define Symbols に AGX_GRID_CONTROL を定義したときだけ有効。
+    ///
+    /// logMaterials が true のとき、setup の直後と phase "raising" で、材料・接触材料・粒子の値を
+    /// Console に出す（MaterialReadout。読むだけで物理は変えない）。
     /// </summary>
     public class SimEpisodeManager : MonoBehaviour
     {
@@ -77,6 +80,7 @@ namespace PWRISimulator.ROS
         [SerializeField] string cmdTopic = "/sim/episode_cmd";
         [SerializeField] string statusTopic = "/sim/episode_status";
         [SerializeField] float statusRate = 5f;
+        [SerializeField] bool logMaterials = true;         // setup のたびに材料・接触材料を Console に出す（MaterialReadout）
 
         public EpisodeStatus Status { get; } = new EpisodeStatus { request_id = -1, episode_name = "-", episode_index = -1, phase = "idle", error = "" };
 
@@ -119,6 +123,8 @@ namespace PWRISimulator.ROS
                         break;
                     case "phase":
                         Status.phase = cmd.phase;
+                        if (logMaterials && cmd.phase == "raising")   // 排土板の前に粒子が残っている時点
+                            MaterialReadout.LogParticles(terrain, Status.episode_name);
                         break;
                     case "reload":                       // シーンを読み込み直す
                         if (reloading) return;           // 読み込み直しの途中に届いた指令は無視
@@ -164,6 +170,10 @@ namespace PWRISimulator.ROS
             Status.ops_requested = ops.Length;
             Status.ops_cells = 0;
             Status.ops_applied = ops.Length == 0 || ApplyTerrainOps(ops);
+
+            // 材料・接触材料・土の設定を Console に出す（読むだけ。物理は変えない）
+            if (logMaterials)
+                MaterialReadout.LogSetup(terrain, shovel, cmd.episode_name, cmd.request_id);
         }
 
         void ApplySoil(SoilSpec s)
