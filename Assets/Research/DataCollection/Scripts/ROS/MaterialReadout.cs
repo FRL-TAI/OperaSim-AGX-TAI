@@ -37,7 +37,10 @@ namespace PWRISimulator.ROS
             {
                 var native = terrain.Native;
                 var tmat = native.getTerrainMaterial();
-                Dump(Line, "bulk", tmat.getBulkProperties());
+                var b0 = tmat.getBulkProperties();
+                Line($"maxDensity={F(b0.getMaximumDensity())} density={F(b0.getDensity())} swell={F(b0.getSwellFactor())} " +
+                     $"maxDensity/density={F(b0.getMaximumDensity() / b0.getDensity())} 1/swell={F(1.0 / b0.getSwellFactor())}");
+                Dump(Line, "bulk", b0);
                 Dump(Line, "compaction", tmat.getCompactionProperties());
                 Dump(Line, "particle", tmat.getParticleProperties());
                 Dump(Line, "excavation_contact", tmat.getExcavationContactProperties());

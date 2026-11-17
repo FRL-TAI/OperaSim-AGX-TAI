@@ -11,7 +11,8 @@ namespace PWRISimulator.ROS
     ///
     /// 受信 /sim/episode_cmd （std_msgs/String, JSON）
     ///   {"command":"setup", "request_id":…, "episode_name":…, "episode_index":…, "total_episodes":…,
-    ///    "soil":{"cohesion":Pa, "friction_angle_deg":deg, "density":kg/m3, "swell_factor":…, "youngs_modulus":Pa},
+    ///    "soil":{"cohesion":Pa, "friction_angle_deg":deg, "density":kg/m3, "swell_factor":…, "youngs_modulus":Pa,
+    ///            "hardening_ke":…, "hardening_ne":…, "max_density":kg/m3},
     ///    "terrain_ops":[{"type":"compaction_rect", "x_start":…, "x_end":…, "y_min":…, "y_max":…, "value":…, "depth":…}]}
     ///     → 土質パラメータを設定 → 粒子を削除 → 地形の高さ（と締固め）をリセット → 地形を加工
     ///     soil の負の値は「変更しない」。terrain_ops の座標は開始時の刃先中点が原点、x:前方, y:左方 [m]
@@ -33,6 +34,7 @@ namespace PWRISimulator.ROS
         {
             public double cohesion = -1, friction_angle_deg = -1, density = -1, swell_factor = -1, youngs_modulus = -1;
             public double hardening_ke = -1, hardening_ne = -1;
+            public double max_density = -1;   // 締固めの上限の密度 maxDensity [kg/m3]（フェーズ1 の T12。負なら変更しない）
         }
 
         [Serializable] public class TerrainOp
@@ -65,6 +67,7 @@ namespace PWRISimulator.ROS
             public bool record_compaction;
             public double cohesion, friction_angle_deg, density, swell_factor, youngs_modulus;
             public double hardening_ke, hardening_ne;
+            public double max_density;
             public int ops_requested;
             public bool ops_applied;
             public int ops_cells;
@@ -181,6 +184,8 @@ namespace PWRISimulator.ROS
             if (s == null) return;
             // Inspector の材料アセットは書き換えず、AGX 本体の材料だけを変更する（角度はラジアン）
             var bulk = terrain.Native.getTerrainMaterial().getBulkProperties();
+            // maxDensity は density より先に設定する（density が古い maxDensity を超える場合に備える）
+            if (s.max_density > 0) bulk.setMaximumDensity(s.max_density);
             if (s.cohesion >= 0) bulk.setCohesion(s.cohesion);
             if (s.friction_angle_deg >= 0) bulk.setFrictionAngle(s.friction_angle_deg * Mathf.Deg2Rad);
             if (s.density > 0) bulk.setDensity(s.density);
@@ -278,6 +283,7 @@ namespace PWRISimulator.ROS
             Status.density = bulk.getDensity();
             Status.swell_factor = bulk.getSwellFactor();
             Status.youngs_modulus = bulk.getYoungsModulus();
+            Status.max_density = bulk.getMaximumDensity();
 
             var comp = terrain.Native.getTerrainMaterial().getCompactionProperties();
             Status.hardening_ke = comp.getHardeningConstantKE();
