@@ -50,7 +50,7 @@ namespace PWRISimulator.ROS
 
         [Header("記録の条件")]
         [SerializeField] float xMin = -1.0f;                       // 開始位置からの前後の範囲 [m]（前方が正）
-        [SerializeField] float xMax = 12.0f;
+        [SerializeField] float xMax = 14.0f;
         [SerializeField] float trackWidth = 0.6f;                  // 履帯の幅 [m]（Track の Width と同じ値にする）
         [SerializeField] float controlOffset = 3.5f;              // 対照の列の位置（左方）[m]
         [SerializeField] int depthLayers = 6;                     // 深さ方向に読むボクセルの数（地表のボクセルを含む）

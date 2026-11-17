@@ -48058,7 +48058,7 @@ MonoBehaviour:
   leftTrack: {fileID: 547941649}
   rightTrack: {fileID: 614060113}
   xMin: -1
-  xMax: 12
+  xMax: 14
   trackWidth: 0.6
   controlOffset: 3.5
   depthLayers: 6
