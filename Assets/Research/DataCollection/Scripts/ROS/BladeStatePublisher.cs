@@ -21,7 +21,9 @@ namespace PWRISimulator.ROS
     /// Player Settings の Scripting Define Symbols で次を定義すると、追加の値も取得する（無効なら NaN）。
     ///   AGX_GRID_CONTROL      : くさびの範囲の締固めの程度（state_compaction_*）と、削っている層の締固めの程度
     ///                           （state_cut_compaction_*）。このプロジェクトでは定義済み（2.37 で動作を確認）
-    ///   AGX_EXTRA_TERRAIN_API : 前方の土塊の質量、そのステップの掘削体積。2.37 で API があるか未確認のため定義していない
+    ///
+    /// 排土板の前の土の質量・体積（front_*）と、そのステップの掘削体積（excavated_volume_step）は、
+    /// 2.37 の Terrain の API（引数にショベルを取るもの）で常に取得する。2.40 では同じ関数が Shovel 側に移り、Terrain 側は非推奨。
     /// </summary>
     public class BladeStatePublisher : MonoBehaviour
     {
@@ -129,16 +131,22 @@ namespace PWRISimulator.ROS
                 Add($"ground_profile_{Mathf.RoundToInt(d * 100):000}cm", SoilSimUtils.GroundHeight(terrain, edgeMid + d * fwd));
             }
 
-            // ---- 前方の土塊の質量・掘削体積 ----
-            double frontMass = double.NaN, excavated = double.NaN;
-#if AGX_EXTRA_TERRAIN_API
-            // TODO(要確認): 2.37 での名前。2.40 では Shovel 側（shovel->getSoilParticleAggregate()）
-            var agg = t.getSoilParticleAggregate(s);
-            if (agg != null) frontMass = agg.getTotalAggregateMass();
-            excavated = t.getLastExcavatedVolume();
-#endif
-            Add("front_soil_mass", frontMass);
-            Add("excavated_volume_step", excavated);
+            // ---- 排土板の前の土の質量・体積、掘削体積（AGX 2.37 の Terrain の API）----
+            // front_soil_mass        : 土塊（soil aggregate）の質量 [kg]、PRIMARY（刃の向きに削る）。AGX の説明では
+            //                          「破壊領域で押しのけようとしている土の質量。PRIMARY では inner shape の分を含む」
+            // front_soil_mass_deform : DEFORM_BACK・RIGHT・LEFT の土塊の質量の和 [kg]（押しのけ・横への変形）
+            // front_dynamic_mass     : ショベルの inner shape の中の動く土（粒子と fluid mass）の質量 [kg]
+            // front_inner_volume     : inner shape の体積 [m3]（dead load の計算に使う。排土板の形で決まる）
+            // front_dead_load_fraction : inner shape のうち動く土で埋まっている割合 [-]（0〜1）
+            // excavated_volume_step  : 地形全体で、直前のステップに掘削された体積 [m3]
+            Add("front_soil_mass", t.getSoilAggregateMass(s, agxTerrain.Shovel.ExcavationMode.PRIMARY));
+            Add("front_soil_mass_deform", t.getSoilAggregateMass(s, agxTerrain.Shovel.ExcavationMode.DEFORM_BACK)
+                                        + t.getSoilAggregateMass(s, agxTerrain.Shovel.ExcavationMode.DEFORM_RIGHT)
+                                        + t.getSoilAggregateMass(s, agxTerrain.Shovel.ExcavationMode.DEFORM_LEFT));
+            Add("front_dynamic_mass", t.getDynamicMass(s));
+            Add("front_inner_volume", t.getInnerVolume(s));
+            Add("front_dead_load_fraction", t.getLastDeadLoadFraction(s));
+            Add("excavated_volume_step", t.getLastExcavatedVolume());
 
             // ---- くさびの範囲の締固めの程度（時刻ごとに変わる状態ラベル）----
             double cMean = double.NaN, cStd = double.NaN, cN = 0;
