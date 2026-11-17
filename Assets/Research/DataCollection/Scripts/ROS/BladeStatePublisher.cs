@@ -24,6 +24,8 @@ namespace PWRISimulator.ROS
     ///
     /// 排土板の前の土の質量・体積（front_*）と、そのステップの掘削体積（excavated_volume_step）は、
     /// 2.37 の Terrain の API（引数にショベルを取るもの）で常に取得する。2.40 では同じ関数が Shovel 側に移り、Terrain 側は非推奨。
+    ///
+    /// 土の山の体積（pile_*）は PileVolume で求める（T15。定義は PileVolume.cs の説明）。
     /// </summary>
     public class BladeStatePublisher : MonoBehaviour
     {
@@ -45,6 +47,10 @@ namespace PWRISimulator.ROS
         [SerializeField] float cutAheadDistance = 0.5f;   // 刃先から前方の、読む範囲 [m]（横は排土板の幅）
         [SerializeField] int cutTimingLogInterval = 500;  // この回数の配信ごとに、読み取りの処理時間を Console に出す（0 で出さない）
 
+        [Header("土の山の体積（PileVolume）")]
+        [SerializeField] float pileFrontLength = 2.0f;    // 刃先から前方の範囲 [m]
+        [SerializeField] float pileHalfWidth = 1.48f;     // 横の範囲（排土板の中心から）[m]
+
         [Header("ROS")]
         [SerializeField] string topicName = "/d37pxi_24/blade_state";
         [SerializeField] float publishRate = 50f;
@@ -62,6 +68,8 @@ namespace PWRISimulator.ROS
         readonly System.Diagnostics.Stopwatch cutWatch = new System.Diagnostics.Stopwatch();
         double cutTimeSum = 0, cutTimeMax = 0;
         int cutTimeCount = 0;
+
+        PileVolume pile;
 
         void Start()
         {
@@ -147,6 +155,44 @@ namespace PWRISimulator.ROS
             Add("front_inner_volume", t.getInnerVolume(s));
             Add("front_dead_load_fraction", t.getLastDeadLoadFraction(s));
             Add("excavated_volume_step", t.getLastExcavatedVolume());
+
+            // ---- 土の山の体積（地形の高さ ＋ 動く土 ÷ (ρ/s)）と、動く土の合計（getDynamicMass の範囲の確認用）----
+            // pile_volume          : V_pile [m3]（後ろは排土板の上端、前は刃先の前 pileFrontLength、横は ±pileHalfWidth）
+            // pile_vol_terrain     : そのうち地形の分 Σ max(h − h0, 0)·A [m3]（h0 はシーンを読み込んだ直後の高さ）
+            // pile_vol_dynamic     : そのうち動く土の分 粒子の質量 ÷ (ρ/s) [m3]（fluid mass は範囲で数えられない。dyn_mass_fluid_total が上限）
+            // pile_mass_particle   : 範囲内の粒子の質量 [kg]
+            // pile_volume_front150 / front250 / wide / ridge : 感度用（前 1.5 m・2.5 m、横に1マス広げた幅、横の畝＝外側1マス）[m3]
+            // pile_vol_terrain_setup : 基本の範囲で Σ max(h − h_setup, 0)·A [m3]（h_setup は setup の地形の加工の後。山を含む）
+            // pile_back_offset     : 刃先から排土板の上端までの水平距離 [m]（範囲の後ろの端）
+            // pile_bulk_density    : 換算に使った ρ/s [kg/m3]
+            // dyn_mass_particle_near : 上端〜刃先の前 0.5 m・±pileHalfWidth の粒子の質量 [kg]（参考）
+            // dyn_mass_particle_total / dyn_mass_fluid_total / dyn_mass_total : 地形全体の粒子・fluid mass・calculateTotalDynamicMass [kg]
+            // dyn_num_particles    : 地形全体の粒子の数
+            // bal_vol_pos / bal_vol_neg : 刃先の後ろ 16 m〜前 3 m・±3 m の窓での Σ max(h − h0, 0)·A と Σ min(h − h0, 0)·A [m3]（収支の確認用）
+            //   bal_* は 25 回（0.5 s）ごとに求め、間は前の値を出す
+            if (pile == null) pile = new PileVolume(terrain);
+            pile.FrontLength = pileFrontLength;
+            pile.HalfWidth = pileHalfWidth;
+            pile.Update(edgeMid, SoilSimUtils.TopEdgeMid(shovel), referenceFrame.forward);
+            bool pv = pile.Valid;
+            Add("pile_volume", pv ? pile.Volume(PileVolume.Bin.Base) : double.NaN);
+            Add("pile_vol_terrain", pv ? pile.TerrainVol[(int)PileVolume.Bin.Base] : double.NaN);
+            Add("pile_vol_dynamic", pv ? pile.ParticleMass[(int)PileVolume.Bin.Base] / pile.BulkDensity : double.NaN);
+            Add("pile_mass_particle", pv ? pile.ParticleMass[(int)PileVolume.Bin.Base] : double.NaN);
+            Add("pile_volume_front150", pv ? pile.Volume(PileVolume.Bin.Front150) : double.NaN);
+            Add("pile_volume_front250", pv ? pile.Volume(PileVolume.Bin.Front250) : double.NaN);
+            Add("pile_volume_wide", pv ? pile.Volume(PileVolume.Bin.Wide) : double.NaN);
+            Add("pile_volume_ridge", pv ? pile.Volume(PileVolume.Bin.Ridge) : double.NaN);
+            Add("pile_vol_terrain_setup", pv ? pile.TerrainVolSetup : double.NaN);
+            Add("pile_back_offset", pv ? pile.BackOffset : double.NaN);
+            Add("pile_bulk_density", pv ? pile.BulkDensity : double.NaN);
+            Add("dyn_mass_particle_near", pv ? pile.ParticleMassNear : double.NaN);
+            Add("dyn_mass_particle_total", pv ? pile.TotalParticleMass : double.NaN);
+            Add("dyn_mass_fluid_total", pv ? pile.TotalFluidMass : double.NaN);
+            Add("dyn_mass_total", pv ? pile.TotalDynamicMass : double.NaN);
+            Add("dyn_num_particles", pv ? pile.NumParticles : double.NaN);
+            Add("bal_vol_pos", pv ? pile.WindowVolPos : double.NaN);
+            Add("bal_vol_neg", pv ? pile.WindowVolNeg : double.NaN);
 
             // ---- くさびの範囲の締固めの程度（時刻ごとに変わる状態ラベル）----
             double cMean = double.NaN, cStd = double.NaN, cN = 0;
