@@ -15,7 +15,9 @@ namespace PWRISimulator.ROS
     ///            "hardening_ke":…, "hardening_ne":…, "max_density":kg/m3},
     ///    "terrain_ops":[{"type":"compaction_rect", "x_start":…, "x_end":…, "y_min":…, "y_max":…, "value":…, "depth":…}]}
     ///     → 土質パラメータを設定 → 粒子を削除 → 地形の高さ（と締固め）をリセット → 地形を加工
-    ///     soil の負の値は「変更しない」。terrain_ops の座標は開始時の刃先中点が原点、x:前方, y:左方 [m]
+    ///     soil の負の値は「変更しない」。ただし maxDensity は、max_density を指定しなければ
+    ///     MaxDensityPerDensity × ρ（設定後の density）にする（締固めの上限をどの ρ でも同じ比にする。案D）。
+    ///     terrain_ops の座標は開始時の刃先中点が原点、x:前方, y:左方 [m]
     ///   {"command":"phase", "phase":"running"}  → 表示用の進行状況だけ更新
     ///   {"command":"reload"}                     → シーンを読み込み直す（SceneReloader を使う）
     ///
@@ -34,7 +36,7 @@ namespace PWRISimulator.ROS
         {
             public double cohesion = -1, friction_angle_deg = -1, density = -1, swell_factor = -1, youngs_modulus = -1;
             public double hardening_ke = -1, hardening_ne = -1;
-            public double max_density = -1;   // 締固めの上限の密度 maxDensity [kg/m3]（フェーズ1 の T12。負なら変更しない）
+            public double max_density = -1;   // 締固めの上限の密度 maxDensity [kg/m3] の上書き（実験用。負なら MaxDensityPerDensity·ρ）
         }
 
         [Serializable] public class TerrainOp
@@ -84,6 +86,10 @@ namespace PWRISimulator.ROS
         [SerializeField] string statusTopic = "/sim/episode_status";
         [SerializeField] float statusRate = 5f;
         [SerializeField] bool logMaterials = true;         // setup のたびに材料・接触材料を Console に出す（MaterialReadout）
+
+        /// <summary>maxDensity/ρ の比（締固めの程度の上限）。dirt_1 の maxDensity 2,000 / ρ 1,474 ≈ 1.357。
+        /// 固定のパラメータで、同定の対象にしない（notes decisions/2026-11-17_maxDensityをρに比例させる.md）</summary>
+        public const double MaxDensityPerDensity = 2000.0 / 1474.0;
 
         public EpisodeStatus Status { get; } = new EpisodeStatus { request_id = -1, episode_name = "-", episode_index = -1, phase = "idle", error = "" };
 
@@ -184,8 +190,10 @@ namespace PWRISimulator.ROS
             if (s == null) return;
             // Inspector の材料アセットは書き換えず、AGX 本体の材料だけを変更する（角度はラジアン）
             var bulk = terrain.Native.getTerrainMaterial().getBulkProperties();
-            // maxDensity は density より先に設定する（density が古い maxDensity を超える場合に備える）
-            if (s.max_density > 0) bulk.setMaximumDensity(s.max_density);
+            // maxDensity は density より先に設定する（density が古い maxDensity を超える場合に備える）。
+            // 上書きがなければ、設定後の density（指定がなければ今の値）の MaxDensityPerDensity 倍にする（案D）
+            double rho = s.density > 0 ? s.density : bulk.getDensity();
+            bulk.setMaximumDensity(s.max_density > 0 ? s.max_density : MaxDensityPerDensity * rho);
             if (s.cohesion >= 0) bulk.setCohesion(s.cohesion);
             if (s.friction_angle_deg >= 0) bulk.setFrictionAngle(s.friction_angle_deg * Mathf.Deg2Rad);
             if (s.density > 0) bulk.setDensity(s.density);
