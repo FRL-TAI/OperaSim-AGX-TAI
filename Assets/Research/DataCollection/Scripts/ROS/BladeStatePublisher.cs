@@ -219,6 +219,11 @@ namespace PWRISimulator.ROS
             // pile_volume_vis_wide : 同じ計算を、刃先の後ろ 1 m〜前 3 m・±2 m で [m3]
             Add("pile_volume_vis", pv ? pile.VisVol : double.NaN);
             Add("pile_volume_vis_wide", pv ? pile.VisVolWide : double.NaN);
+            // vis_net_pos / vis_net_neg / vis_net : 収支の窓（bal_* と同じ）での、粒子を含む高さ − 開始時の粒子を含む高さ の
+            //   正の部分・負の部分（正の値）・差 [m3]（T25）。1 秒ごと（raising の間と進行状況が変わった回は毎回）に求め、間は前の値
+            Add("vis_net_pos", pv ? pile.VisNetPos : double.NaN);
+            Add("vis_net_neg", pv ? pile.VisNetNeg : double.NaN);
+            Add("vis_net", pv ? pile.VisNetPos - pile.VisNetNeg : double.NaN);
 
             // ---- 前方の地面の高さ（AGX から直接読む。粒子を含む高さ。T23）----
             AddForwardHeights(t, pv);

@@ -40,6 +40,12 @@ namespace PWRISimulator.ROS
     ///   hB は AGX の Terrain.getSoilParticleBoundedHeightField()（地形と同じ頂点・同じ基準）、h は地形の高さ、h0 は上と同じ。
     ///   粒子の質量を ρ/s で換算しないので、s にラベルの値を使わない（V_pile と違い、地形の経路の観測に使える）。
     ///   粒子を含む高さ場が取れないか、解像度が地形と違うときは NaN。
+    ///
+    /// 道すじ全体の体積の出入り（T25。notes decisions/2026-11-18_sの判定は道すじ全体の体積の出入りで行う.md）：
+    ///   収支の窓（WindowBack・WindowFront・WindowHalf。bal_vol_* と同じ）で、粒子を含む高さ hB と h0'（シーンを読み込んだ直後の
+    ///   同じ粒子を含む高さ場）の差を足す。VisNetPos = Σ max(hB − h0', 0)·A、VisNetNeg = Σ max(h0' − hB, 0)·A。
+    ///   VisNetEvery 回ごと（50 Hz で 1 秒ごと）に求め、間は前の値を出す。ただし、エピソードの進行状況が raising の間と、
+    ///   進行状況が変わった回は毎回求める（エピソードの終わりの値を必ず新しくするため）。
     /// </summary>
     public class PileVolume
     {
@@ -71,6 +77,13 @@ namespace PWRISimulator.ROS
         public float VisWideBack = 1f, VisWideFront = 3f, VisWideHalf = 2f;
         public double VisVol = double.NaN, VisVolWide = double.NaN;
         double tVis;
+
+        // 道すじ全体の体積の出入り（T25）[m3]
+        public int VisNetEvery = 50;
+        public double VisNetPos = double.NaN, VisNetNeg = double.NaN;
+        float[,] hVis0;                          // [iy, ix] シーンを読み込んだ直後の粒子を含む高さ（AGX の地形の座標）
+        string lastPhase;
+        double tNet, tNetMax; int tNetCount;
 
         // 収支の確認用：刃先の後ろ WindowBack 〜 前 WindowFront・±WindowHalf の広い窓（通った道すじ全体を含む）での
         // Σ max(h − h0, 0)·A と Σ min(h − h0, 0)·A
@@ -216,6 +229,33 @@ namespace PWRISimulator.ROS
                 WindowVolPos = pos; WindowVolNeg = neg;
                 tWindowCount++;
             }
+            // ---- 道すじ全体の体積の出入り（粒子を含む高さ場、T25）----
+            bool hfOk = hfB != null && hfB.getResolutionX() == res && hfB.getResolutionY() == res;
+            if (hfOk && hVis0 == null)
+            {
+                hVis0 = new float[res, res];
+                for (int iy = 0; iy < res; iy++)
+                    for (int ix = 0; ix < res; ix++)
+                        hVis0[iy, ix] = (float)hfB.getHeight((uint)(res - 1 - ix), (uint)(res - 1 - iy));
+            }
+            string phase = episodeManager != null ? episodeManager.Status.phase : null;
+            bool phaseChanged = phase != lastPhase;
+            lastPhase = phase;
+            if (hfOk && hVis0 != null && (VisNetEvery <= 1 || callCount % VisNetEvery == 1 || phase == "raising" || phaseChanged))
+            {
+                double tn0 = sw.Elapsed.TotalMilliseconds;
+                double pos = 0, neg = 0;
+                SoilSimUtils.ForEachCellInRect(terrain, edgeMid, fwd, -WindowBack, WindowFront, -WindowHalf, WindowHalf, idx =>
+                {
+                    int ix = res - 1 - (int)idx.x, iy = res - 1 - (int)idx.y;
+                    double dh = hfB.getHeight((uint)idx.x, (uint)idx.y) - hVis0[iy, ix];
+                    if (dh > 0) pos += dh * area; else neg -= dh * area;
+                });
+                VisNetPos = pos; VisNetNeg = neg;
+                double dt = sw.Elapsed.TotalMilliseconds - tn0;
+                tNet += dt; tNetMax = System.Math.Max(tNetMax, dt); tNetCount++;
+            }
+            else if (!hfOk) { VisNetPos = VisNetNeg = double.NaN; }
             double t2 = sw.Elapsed.TotalMilliseconds;
 
             // ---- 粒子（位置を最寄りのマスに割り当てる）----
@@ -257,9 +297,11 @@ namespace PWRISimulator.ROS
             if (TimingLogInterval <= 0) return;
             tBase += b; tWindow += w; tParticle += p; tMaxTotal = System.Math.Max(tMaxTotal, b + w + p); tCount++;
             if (tCount < TimingLogInterval) return;
-            Debug.Log($"PileVolume: {tCount} 回の平均 範囲 {tBase / tCount:F3} ms（うち粒子を含む体積 {tVis / tCount:F3} ms）、窓 {tWindow / System.Math.Max(1, tWindowCount):F3} ms/回（{tWindowCount} 回）、"
+            Debug.Log($"PileVolume: {tCount} 回の平均 範囲 {tBase / tCount:F3} ms（うち粒子を含む体積 {tVis / tCount:F3} ms）、"
+                      + $"道すじの出入り {tNet / System.Math.Max(1, tNetCount):F3} ms/回（{tNetCount} 回、最大 {tNetMax:F3} ms）、"
+                      + $"窓 {tWindow / System.Math.Max(1, tWindowCount):F3} ms/回（{tWindowCount} 回）、"
                       + $"粒子 {tParticle / tCount:F3} ms（{NumParticles} 個）、合計の最大 {tMaxTotal:F3} ms（1ステップ {Time.fixedDeltaTime * 1000:F1} ms）");
-            tBase = tWindow = tParticle = tMaxTotal = tVis = 0; tCount = tWindowCount = 0;
+            tBase = tWindow = tParticle = tMaxTotal = tVis = tNet = tNetMax = 0; tCount = tWindowCount = tNetCount = 0;
         }
 
         readonly List<Bin> binBuf = new List<Bin>(5);
