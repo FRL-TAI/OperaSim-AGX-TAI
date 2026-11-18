@@ -26,6 +26,13 @@ namespace PWRISimulator.ROS
     /// 2.37 の Terrain の API（引数にショベルを取るもの）で常に取得する。2.40 では同じ関数が Shovel 側に移り、Terrain 側は非推奨。
     ///
     /// 土の山の体積（pile_*）は PileVolume で求める（T15。定義は PileVolume.cs の説明）。
+    ///
+    /// 前方の地面の高さ（T23。notes decisions/2026-11-17_粒子を含む高さの列とground_profileの扱い.md）：
+    ///   ground_profile_*  : Unity の TerrainData の高さ（地形の高さ場。粒子を含まず、1ステップ遅れる）。これまでの記録との比較のため残す
+    ///   ground_terrain_*  : 同じ点の、AGX の地形の高さ場（Terrain.getHeight）を直接読んだ高さ。1ステップの遅れがない
+    ///   ground_vis_*      : 同じ点の、粒子を含む高さ（Terrain.getSoilParticleBoundedHeightField）と ground_terrain_* の大きいほう
+    ///   ground_ptop_*     : 確かめ用。最寄りの頂点の地形の高さと、その頂点に割り当てた粒子の上端（中心 ＋ 半径）の最大の大きいほう
+    ///   いずれもワールドの高さ [m]。ground_terrain_*・ground_vis_* は4つの頂点の双一次補間。
     /// </summary>
     public class BladeStatePublisher : MonoBehaviour
     {
@@ -39,6 +46,7 @@ namespace PWRISimulator.ROS
         [SerializeField] float behindDistance = 0.3f;     // ground_behind を測る距離 [m]（刃先の後ろ。削った後の地面）
         [SerializeField] float profileStep = 0.25f;       // 前方の断面を測る間隔 [m]
         [SerializeField] int profileCount = 8;            // 前方の断面の点数
+        [SerializeField] int profileTimingLogInterval = 500; // この回数の配信ごとに、粒子を含む高さと配信全体の処理時間を Console に出す（0 で出さない）
 
         [Header("状態ラベル（AGX_GRID_CONTROL 有効時）")]
         [SerializeField] float wedgeLength = 1.0f;        // 刃先から前方の、平均を取る範囲 [m]
@@ -71,6 +79,14 @@ namespace PWRISimulator.ROS
 
         PileVolume pile;
 
+        // 前方の高さ（T23）
+        Vector3[] profilePts;
+        int visDiagCount = 0;                        // 粒子を含む高さ場の確認を出した回数（最初と、粒子が 100 個を超えた最初の回の2回）
+        readonly System.Diagnostics.Stopwatch visWatch = new System.Diagnostics.Stopwatch();
+        readonly System.Diagnostics.Stopwatch totalWatch = new System.Diagnostics.Stopwatch();
+        double visTimeSum = 0, visTimeMax = 0, totalTimeSum = 0, totalTimeMax = 0;
+        int profTimeCount = 0;
+
         void Start()
         {
             ros = ROSConnection.GetOrCreateInstance();
@@ -100,6 +116,7 @@ namespace PWRISimulator.ROS
             if (time - lastPublishTime < 1.0 / publishRate - 0.5 * Time.fixedDeltaTime) return;
             lastPublishTime = time;
             values.Clear();
+            totalWatch.Restart();
 
             Add("sim_time", time);
 
@@ -133,10 +150,12 @@ namespace PWRISimulator.ROS
             Add("ground_below", SoilSimUtils.GroundHeight(terrain, edgeMid));
             Add("ground_behind", SoilSimUtils.GroundHeight(terrain, edgeMid - behindDistance * fwd));
             Add("ground_ahead", SoilSimUtils.GroundHeight(terrain, edgeMid + aheadDistance * fwd));
+            if (profilePts == null || profilePts.Length != profileCount) profilePts = new Vector3[profileCount];
             for (int k = 1; k <= profileCount; k++)
             {
                 float d = k * profileStep;
-                Add($"ground_profile_{Mathf.RoundToInt(d * 100):000}cm", SoilSimUtils.GroundHeight(terrain, edgeMid + d * fwd));
+                profilePts[k - 1] = edgeMid + d * fwd;
+                Add($"ground_profile_{Mathf.RoundToInt(d * 100):000}cm", SoilSimUtils.GroundHeight(terrain, profilePts[k - 1]));
             }
 
             // ---- 排土板の前の土の質量・体積、掘削体積（AGX 2.37 の Terrain の API）----
@@ -173,6 +192,9 @@ namespace PWRISimulator.ROS
             if (pile == null) pile = new PileVolume(terrain);
             pile.FrontLength = pileFrontLength;
             pile.HalfWidth = pileHalfWidth;
+            // 前方の断面の点の最寄りの頂点で、粒子の上端の最大を求めてもらう（ground_ptop_* 用）
+            if (pile.QueryCells == null || pile.QueryCells.Length != profileCount) pile.QueryCells = new Vector2Int[profileCount];
+            for (int k = 0; k < profileCount; k++) pile.QueryCells[k] = SoilSimUtils.WorldToUnityIndex(terrain, profilePts[k]);
             pile.Update(edgeMid, SoilSimUtils.TopEdgeMid(shovel), referenceFrame.forward);
             bool pv = pile.Valid;
             Add("pile_volume", pv ? pile.Volume(PileVolume.Bin.Base) : double.NaN);
@@ -193,6 +215,9 @@ namespace PWRISimulator.ROS
             Add("dyn_num_particles", pv ? pile.NumParticles : double.NaN);
             Add("bal_vol_pos", pv ? pile.WindowVolPos : double.NaN);
             Add("bal_vol_neg", pv ? pile.WindowVolNeg : double.NaN);
+
+            // ---- 前方の地面の高さ（AGX から直接読む。粒子を含む高さ。T23）----
+            AddForwardHeights(t, pv);
 
             // ---- くさびの範囲の締固めの程度（時刻ごとに変わる状態ラベル）----
             double cMean = double.NaN, cStd = double.NaN, cN = 0;
@@ -241,6 +266,122 @@ namespace PWRISimulator.ROS
                 data = values.ToArray()
             };
             ros.Publish(topicName, msg);
+            totalWatch.Stop();
+            LogProfileTiming();
+        }
+
+        /// <summary>
+        /// ground_profile_* と同じ点で、ground_terrain_* / ground_vis_* / ground_ptop_* を足す（T23。定義はクラスの説明）。
+        /// 粒子を含む高さ場は毎回 getSoilParticleBoundedHeightField で取り直す。解像度が地形と違うときは NaN にする。
+        /// </summary>
+        void AddForwardHeights(agxTerrain.Terrain t, bool pileValid)
+        {
+            int res = terrain.TerrainDataResolution;
+            float baseY = terrain.Terrain.transform.position.y;
+
+            visWatch.Restart();
+            agxCollide.HeightField hfB = null;
+            try { hfB = t.getSoilParticleBoundedHeightField(); }
+            catch (System.Exception e) { if (visDiagCount == 0) Debug.LogWarning($"BladeStatePublisher: getSoilParticleBoundedHeightField が失敗しました: {e.Message}"); }
+            bool hfOk = hfB != null && hfB.getResolutionX() == res && hfB.getResolutionY() == res;
+            var vis = new double[profileCount];
+            var ter = new double[profileCount];
+            for (int k = 0; k < profileCount; k++)
+            {
+                ter[k] = Bilinear(profilePts[k], (ax, ay) => t.getHeight(new agx.Vec2i(ax, ay)));
+                double hb = hfOk ? Bilinear(profilePts[k], (ax, ay) => hfB.getHeight((uint)ax, (uint)ay)) : double.NaN;
+                vis[k] = double.IsNaN(hb) ? double.NaN : System.Math.Max(hb, ter[k]);
+            }
+            visWatch.Stop();
+            if (visDiagCount == 0 || (visDiagCount == 1 && pileValid && pile.NumParticles > 100)) LogVisDiag(t, hfB, hfOk);
+
+            for (int k = 0; k < profileCount; k++)
+                Add($"ground_terrain_{Mathf.RoundToInt((k + 1) * profileStep * 100):000}cm", ter[k]);
+            for (int k = 0; k < profileCount; k++)
+                Add($"ground_vis_{Mathf.RoundToInt((k + 1) * profileStep * 100):000}cm", vis[k]);
+            for (int k = 0; k < profileCount; k++)
+            {
+                double v = double.NaN;
+                if (pileValid && pile.QueryParticleTop != null)
+                {
+                    var c = pile.QueryCells[k];
+                    if (c.x >= 0 && c.y >= 0 && c.x < res && c.y < res)
+                    {
+                        var a = SoilSimUtils.UnityToAgxIndex(terrain, c.x, c.y);
+                        double hT = baseY + t.getHeight(a);
+                        v = System.Math.Max(hT, pile.QueryParticleTop[k]);
+                    }
+                }
+                Add($"ground_ptop_{Mathf.RoundToInt((k + 1) * profileStep * 100):000}cm", v);
+            }
+        }
+
+        /// <summary>
+        /// ワールドの点 (x, z) の高さを、4つの頂点の高さ（AGX のマス番号で読む関数 h）から双一次補間で求める [ワールド y]。
+        /// 再生中は Terrain の transform が MaximumDepth だけ下げてあり、AGX の高さ ＋ transform.y がワールドの高さになる
+        /// （DeformableTerrain.UpdateHeights が TerrainData に AGX の高さをそのまま書くのと同じ対応）。範囲外は NaN。
+        /// </summary>
+        double Bilinear(Vector3 world, System.Func<int, int, double> h)
+        {
+            int res = terrain.TerrainDataResolution;
+            var size = terrain.TerrainData.size;
+            var pos = terrain.Terrain.transform.position;
+            double fx = (world.x - pos.x) / size.x * (res - 1), fz = (world.z - pos.z) / size.z * (res - 1);
+            if (fx < 0 || fz < 0 || fx > res - 1 || fz > res - 1) return double.NaN;
+            int ix = System.Math.Min((int)System.Math.Floor(fx), res - 2), iz = System.Math.Min((int)System.Math.Floor(fz), res - 2);
+            double ux = fx - ix, uz = fz - iz;
+            // Unity の番号 (ix, iz) → AGX の番号 (res − 1 − ix, res − 1 − iz)
+            double h00 = h(res - 1 - ix, res - 1 - iz), h10 = h(res - 2 - ix, res - 1 - iz);
+            double h01 = h(res - 1 - ix, res - 2 - iz), h11 = h(res - 2 - ix, res - 2 - iz);
+            return pos.y + (1 - ux) * (1 - uz) * h00 + ux * (1 - uz) * h10 + (1 - ux) * uz * h01 + ux * uz * h11;
+        }
+
+        /// <summary>
+        /// 粒子を含む高さ場の対応を確かめるため、最初と、粒子が 100 個を超えた最初の回に、全頂点で
+        /// 「粒子を含む高さ − 地形の高さ」の最小・最大と、1 mm より高い頂点の数を Console に出す。
+        /// 地形の衝突用の高さ場（getHeightField）と getHeight の差も出す（座標の基準が同じかの確認）。
+        /// </summary>
+        void LogVisDiag(agxTerrain.Terrain t, agxCollide.HeightField hfB, bool hfOk)
+        {
+            visDiagCount++;
+            int res = terrain.TerrainDataResolution;
+            if (hfB == null) { Debug.LogWarning("BladeStatePublisher: getSoilParticleBoundedHeightField が null を返しました。ground_vis_* は NaN になります"); return; }
+            if (!hfOk)
+            {
+                Debug.LogWarning($"BladeStatePublisher: 粒子を含む高さ場の解像度 {hfB.getResolutionX()}×{hfB.getResolutionY()} が地形 {res} と違います。ground_vis_* は NaN になります");
+                return;
+            }
+            var hfC = t.getHeightField();
+            double dMin = double.PositiveInfinity, dMax = double.NegativeInfinity, cMaxAbs = 0;
+            int nAbove = 0;
+            for (int ay = 0; ay < res; ay++)
+                for (int ax = 0; ax < res; ax++)
+                {
+                    double hT = t.getHeight(new agx.Vec2i(ax, ay));
+                    double d = hfB.getHeight((uint)ax, (uint)ay) - hT;
+                    dMin = System.Math.Min(dMin, d); dMax = System.Math.Max(dMax, d);
+                    if (d > 1e-3) nAbove++;
+                    if (hfC != null) cMaxAbs = System.Math.Max(cMaxAbs, System.Math.Abs(hfC.getHeight((uint)ax, (uint)ay) - hT));
+                }
+            // TerrainData（ground_profile_* の元）と AGX の高さの対応の確認（刃先の前 2.0 m の点）
+            Vector3 p = profilePts[profileCount - 1];
+            double viaUnity = SoilSimUtils.GroundHeight(terrain, p);
+            double viaAgx = Bilinear(p, (ax, ay) => t.getHeight(new agx.Vec2i(ax, ay)));
+            Debug.Log($"BladeStatePublisher: 粒子を含む高さ場（粒子 {(pile != null ? pile.NumParticles : 0)} 個）解像度 {res}、粒子を含む高さ − 地形の高さ 最小 {dMin * 1000:F2} mm・最大 {dMax * 1000:F1} mm、"
+                      + $"1 mm より高い頂点 {nAbove}/{res * res}、|衝突用の高さ場 − getHeight| の最大 {cMaxAbs * 1000:F3} mm、"
+                      + $"前 {profileCount * profileStep:F2} m の点で TerrainData {viaUnity:F4} m・AGX {viaAgx:F4} m");
+        }
+
+        void LogProfileTiming()
+        {
+            if (profileTimingLogInterval <= 0) return;
+            double v = visWatch.Elapsed.TotalMilliseconds, a = totalWatch.Elapsed.TotalMilliseconds;
+            visTimeSum += v; visTimeMax = System.Math.Max(visTimeMax, v);
+            totalTimeSum += a; totalTimeMax = System.Math.Max(totalTimeMax, a);
+            if (++profTimeCount < profileTimingLogInterval) return;
+            Debug.Log($"BladeStatePublisher: {profTimeCount} 回の平均 粒子を含む高さ {visTimeSum / profTimeCount:F3} ms（最大 {visTimeMax:F3} ms）、"
+                      + $"配信全体 {totalTimeSum / profTimeCount:F3} ms（最大 {totalTimeMax:F3} ms）（1ステップ {Time.fixedDeltaTime * 1000:F1} ms）");
+            visTimeSum = visTimeMax = totalTimeSum = totalTimeMax = 0; profTimeCount = 0;
         }
 
 #if AGX_GRID_CONTROL

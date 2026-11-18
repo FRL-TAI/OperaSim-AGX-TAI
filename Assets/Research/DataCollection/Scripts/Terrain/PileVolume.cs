@@ -30,6 +30,9 @@ namespace PWRISimulator.ROS
     ///
     /// 感度を見るため、前 1.5 m・2.5 m、横に1マス広げた幅、横の畝（範囲の外側1マス）も同時に求める。
     /// getDynamicMass が数える範囲を確かめるため、地形全体の動く土の合計も出す。
+    ///
+    /// QueryCells を与えると、そのマス（Unity の番号）に割り当てた粒子の上端（中心の高さ ＋ 半径、ワールド y）の
+    /// 最大を QueryParticleTop に入れる（粒子がなければ −∞）。前方の高さの確かめ用（T23、BladeStatePublisher の ground_ptop_*）。
     /// </summary>
     public class PileVolume
     {
@@ -52,6 +55,10 @@ namespace PWRISimulator.ROS
         public double TotalFluidMass = double.NaN;   // 地形全体の fluid mass [kg]
         public double TotalDynamicMass = double.NaN; // calculateTotalDynamicMass [kg]
         public bool Valid;
+
+        // 前方の高さの確かめ用（T23）：マスごとの粒子の上端の最大 [ワールド y]
+        public Vector2Int[] QueryCells;
+        public float[] QueryParticleTop;
 
         // 収支の確認用：刃先の後ろ WindowBack 〜 前 WindowFront・±WindowHalf の広い窓（通った道すじ全体を含む）での
         // Σ max(h − h0, 0)·A と Σ min(h − h0, 0)·A
@@ -129,6 +136,12 @@ namespace PWRISimulator.ROS
             Array.Clear(TerrainVol, 0, TerrainVol.Length);
             Array.Clear(ParticleMass, 0, ParticleMass.Length);
             TerrainVolSetup = 0; ParticleMassNear = 0; TotalParticleMass = 0; NumParticles = 0;
+            bool query = QueryCells != null && QueryCells.Length > 0;
+            if (query)
+            {
+                if (QueryParticleTop == null || QueryParticleTop.Length != QueryCells.Length) QueryParticleTop = new float[QueryCells.Length];
+                for (int q = 0; q < QueryParticleTop.Length; q++) QueryParticleTop[q] = float.NegativeInfinity;
+            }
 
             Vector3 tpos = terrain.Terrain.transform.position;
             // Unity のマス番号 → 刃先を原点とした前方 lx・左方 ly（UnityIndexToWorld と同じ式。Unity の呼び出しを減らすため手で書く）
@@ -182,10 +195,14 @@ namespace PWRISimulator.ROS
                     TotalParticleMass += m;
                     Vector3 p = g.position().ToHandedVector3();
                     if (!diagLogged && i == 0) LogParticleDiag(t, g.getRadius(), m);
+                    float top = query ? p.y + (float)g.getRadius() : 0f;
                     g.ReturnToPool();
                     int uix = Mathf.RoundToInt((p.x - tpos.x) / size.x * (res - 1));
                     int uiy = Mathf.RoundToInt((p.z - tpos.z) / size.z * (res - 1));
                     if (uix < 0 || uiy < 0 || uix >= res || uiy >= res) continue;
+                    if (query)
+                        for (int q = 0; q < QueryCells.Length; q++)
+                            if (QueryCells[q].x == uix && QueryCells[q].y == uiy && top > QueryParticleTop[q]) QueryParticleTop[q] = top;
                     Local(uix, uiy, out float lx, out float ly);
                     foreach (var b in BinsOf(lx, ly)) ParticleMass[(int)b] += m;
                     if (lx >= -BackOffset && lx <= NearFront && System.Math.Abs(ly) <= HalfWidth) ParticleMassNear += m;
