@@ -33,6 +33,13 @@ namespace PWRISimulator.ROS
     ///
     /// QueryCells を与えると、そのマス（Unity の番号）に割り当てた粒子の上端（中心の高さ ＋ 半径、ワールド y）の
     /// 最大を QueryParticleTop に入れる（粒子がなければ −∞）。前方の高さの確かめ用（T23、BladeStatePublisher の ground_ptop_*）。
+    ///
+    /// 粒子を含む高さ場から求める幾何学的な山の体積（T24。notes decisions/2026-11-18_地形の経路の観測は粒子を含む高さ場から求める体積にする.md）：
+    ///   VisVol     = Σ（V_pile と同じ範囲のマス）max(max(hB, h) − h0, 0)·A_cell
+    ///   VisVolWide = 同じ計算を、刃先の後ろ VisWideBack 〜 前 VisWideFront・±VisWideHalf で行う
+    ///   hB は AGX の Terrain.getSoilParticleBoundedHeightField()（地形と同じ頂点・同じ基準）、h は地形の高さ、h0 は上と同じ。
+    ///   粒子の質量を ρ/s で換算しないので、s にラベルの値を使わない（V_pile と違い、地形の経路の観測に使える）。
+    ///   粒子を含む高さ場が取れないか、解像度が地形と違うときは NaN。
     /// </summary>
     public class PileVolume
     {
@@ -59,6 +66,11 @@ namespace PWRISimulator.ROS
         // 前方の高さの確かめ用（T23）：マスごとの粒子の上端の最大 [ワールド y]
         public Vector2Int[] QueryCells;
         public float[] QueryParticleTop;
+
+        // 粒子を含む高さ場から求める山の体積（T24）[m3]
+        public float VisWideBack = 1f, VisWideFront = 3f, VisWideHalf = 2f;
+        public double VisVol = double.NaN, VisVolWide = double.NaN;
+        double tVis;
 
         // 収支の確認用：刃先の後ろ WindowBack 〜 前 WindowFront・±WindowHalf の広い窓（通った道すじ全体を含む）での
         // Σ max(h − h0, 0)·A と Σ min(h − h0, 0)·A
@@ -165,6 +177,30 @@ namespace PWRISimulator.ROS
                     TerrainVolSetup += System.Math.Max(h - hSetup[iy, ix], 0f) * area;
             });
 
+            // ---- 粒子を含む高さ場から求める山の体積（T24）----
+            double tv0 = sw.Elapsed.TotalMilliseconds;
+            VisVol = VisVolWide = double.NaN;
+            agxCollide.HeightField hfB = null;
+            try { hfB = t.getSoilParticleBoundedHeightField(); } catch (System.Exception) { hfB = null; }
+            if (hfB != null && hfB.getResolutionX() == res && hfB.getResolutionY() == res)
+            {
+                double HVis(int ax, int ay, int ix, int iy) =>
+                    System.Math.Max(System.Math.Max(hfB.getHeight((uint)ax, (uint)ay), AgxHeight(t, ax, ay)) - h0[iy, ix], 0.0) * area;
+                double vb = 0, vw = 0;
+                SoilSimUtils.ForEachCellInRect(terrain, edgeMid, fwd, (float)-BackOffset, FrontLength, -HalfWidth, HalfWidth, idx =>
+                {
+                    int ix = res - 1 - (int)idx.x, iy = res - 1 - (int)idx.y;
+                    vb += HVis((int)idx.x, (int)idx.y, ix, iy);
+                });
+                SoilSimUtils.ForEachCellInRect(terrain, edgeMid, fwd, -VisWideBack, VisWideFront, -VisWideHalf, VisWideHalf, idx =>
+                {
+                    int ix = res - 1 - (int)idx.x, iy = res - 1 - (int)idx.y;
+                    vw += HVis((int)idx.x, (int)idx.y, ix, iy);
+                });
+                VisVol = vb; VisVolWide = vw;
+            }
+            tVis += sw.Elapsed.TotalMilliseconds - tv0;
+
             double t1 = sw.Elapsed.TotalMilliseconds;
 
             // ---- 収支の確認用の広い窓（WindowEvery 回ごと）----
@@ -221,9 +257,9 @@ namespace PWRISimulator.ROS
             if (TimingLogInterval <= 0) return;
             tBase += b; tWindow += w; tParticle += p; tMaxTotal = System.Math.Max(tMaxTotal, b + w + p); tCount++;
             if (tCount < TimingLogInterval) return;
-            Debug.Log($"PileVolume: {tCount} 回の平均 範囲 {tBase / tCount:F3} ms、窓 {tWindow / System.Math.Max(1, tWindowCount):F3} ms/回（{tWindowCount} 回）、"
+            Debug.Log($"PileVolume: {tCount} 回の平均 範囲 {tBase / tCount:F3} ms（うち粒子を含む体積 {tVis / tCount:F3} ms）、窓 {tWindow / System.Math.Max(1, tWindowCount):F3} ms/回（{tWindowCount} 回）、"
                       + $"粒子 {tParticle / tCount:F3} ms（{NumParticles} 個）、合計の最大 {tMaxTotal:F3} ms（1ステップ {Time.fixedDeltaTime * 1000:F1} ms）");
-            tBase = tWindow = tParticle = tMaxTotal = 0; tCount = tWindowCount = 0;
+            tBase = tWindow = tParticle = tMaxTotal = tVis = 0; tCount = tWindowCount = 0;
         }
 
         readonly List<Bin> binBuf = new List<Bin>(5);

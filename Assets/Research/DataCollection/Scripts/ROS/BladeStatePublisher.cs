@@ -215,6 +215,10 @@ namespace PWRISimulator.ROS
             Add("dyn_num_particles", pv ? pile.NumParticles : double.NaN);
             Add("bal_vol_pos", pv ? pile.WindowVolPos : double.NaN);
             Add("bal_vol_neg", pv ? pile.WindowVolNeg : double.NaN);
+            // pile_volume_vis      : 粒子を含む高さ場から求める山の体積 [m3]（V_pile と同じ範囲。T24。定義は PileVolume.cs の説明）
+            // pile_volume_vis_wide : 同じ計算を、刃先の後ろ 1 m〜前 3 m・±2 m で [m3]
+            Add("pile_volume_vis", pv ? pile.VisVol : double.NaN);
+            Add("pile_volume_vis_wide", pv ? pile.VisVolWide : double.NaN);
 
             // ---- 前方の地面の高さ（AGX から直接読む。粒子を含む高さ。T23）----
             AddForwardHeights(t, pv);
